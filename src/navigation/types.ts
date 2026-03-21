@@ -19,7 +19,7 @@ export type ObrasStackParamList = {
 export type InspectionStackParamList = {
   InspectionList: undefined;
   InspectionType: undefined;
-  InspectionForm: { inspectionId?: string; obraId?: string; tipoInspecao?: string };
+  InspectionForm: { inspectionId?: string; obraId?: string; tipo?: string };
 };
 
 // Ensaios Stack

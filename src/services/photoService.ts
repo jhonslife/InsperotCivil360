@@ -78,3 +78,14 @@ export async function saveSignature(base64Data: string): Promise<string> {
   });
   return destUri;
 }
+
+export async function deleteStoredFile(uri: string): Promise<void> {
+  try {
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+    if (fileInfo.exists) {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+    }
+  } catch {
+    // Ignore deletion errors to avoid blocking record cleanup.
+  }
+}

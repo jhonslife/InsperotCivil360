@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS, FONTS } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { Header } from '../../components/Header';
 import { FormField } from '../../components/FormField';
+import { FormNotice } from '../../components/FormNotice';
+import { FormSection } from '../../components/FormSection';
 import { SelectField } from '../../components/SelectField';
 import { DatePickerField } from '../../components/DatePickerField';
 import { createObra, getObraById, updateObra } from '../../database/repositories/obraRepository';
@@ -26,13 +28,7 @@ export function ObraFormScreen() {
   const [status, setStatus] = useState<string>('ativa');
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
-  useEffect(() => {
-    if (isEditing) {
-      loadObra();
-    }
-  }, [obraId]);
-
-  const loadObra = async () => {
+  const loadObra = useCallback(async () => {
     const obra = await getObraById(obraId);
     if (obra) {
       setNome(obra.nome);
@@ -43,7 +39,13 @@ export function ObraFormScreen() {
       setResponsavel(obra.responsavel_tecnico);
       setStatus(obra.status);
     }
-  };
+  }, [obraId]);
+
+  useEffect(() => {
+    if (isEditing) {
+      loadObra();
+    }
+  }, [isEditing, loadObra]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string | null> = {
@@ -110,60 +112,74 @@ export function ObraFormScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <FormField
-          label="Nome da Obra"
-          value={nome}
-          onChangeText={setNome}
-          placeholder="Ex: Ponte Viaduto XP-107"
-          error={errors.nome}
+        <FormNotice
+          title={isEditing ? 'Edição em andamento' : 'Cadastro de obra'}
+          message={isEditing
+            ? 'Revise os dados e salve as alterações para atualizar a obra ativa.'
+            : 'Preencha os dados principais da obra para liberar os demais fluxos do aplicativo.'}
         />
-        <FormField
-          label="Local"
-          value={local}
-          onChangeText={setLocal}
-          placeholder="Ex: Km 35 - SP-280"
-          error={errors.local}
-        />
-        <FormField
-          label="Cliente"
-          value={cliente}
-          onChangeText={setCliente}
-          placeholder="Ex: Construtora ABC"
-          error={errors.cliente}
-        />
-        <SelectField
-          label="Tipo da Obra"
-          value={tipo}
-          options={tipoOptions}
-          onSelect={setTipo}
-          error={errors.tipo}
-        />
-        <DatePickerField
-          label="Data de Início"
-          value={dataInicio}
-          onChange={setDataInicio}
-        />
-        <FormField
-          label="Responsável Técnico"
-          value={responsavel}
-          onChangeText={setResponsavel}
-          placeholder="Ex: Eng. José Vital"
-          error={errors.responsavel}
-        />
-        {isEditing && (
-          <SelectField
-            label="Status"
-            value={status}
-            options={statusOptions}
-            onSelect={setStatus}
+
+        <FormSection title="Dados principais" description="Essas informações identificam e classificam a obra.">
+          <FormField
+            label="Nome da Obra"
+            value={nome}
+            onChangeText={setNome}
+            placeholder="Ex: Ponte Viaduto XP-107"
+            error={errors.nome}
           />
+          <FormField
+            label="Local"
+            value={local}
+            onChangeText={setLocal}
+            placeholder="Ex: Km 35 - SP-280"
+            error={errors.local}
+          />
+          <FormField
+            label="Cliente"
+            value={cliente}
+            onChangeText={setCliente}
+            placeholder="Ex: Construtora ABC"
+            error={errors.cliente}
+          />
+          <SelectField
+            label="Tipo da Obra"
+            value={tipo}
+            options={tipoOptions}
+            onSelect={setTipo}
+            error={errors.tipo}
+          />
+          <DatePickerField
+            label="Data de Início"
+            value={dataInicio}
+            onChange={setDataInicio}
+          />
+          <FormField
+            label="Responsável Técnico"
+            value={responsavel}
+            onChangeText={setResponsavel}
+            placeholder="Ex: Eng. José Vital"
+            error={errors.responsavel}
+          />
+        </FormSection>
+
+        {isEditing && (
+          <FormSection title="Status" description="Use o status para refletir a situação atual da obra.">
+            <SelectField
+              label="Status"
+              value={status}
+              options={statusOptions}
+              onSelect={setStatus}
+            />
+          </FormSection>
         )}
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
-          <Text style={styles.saveButtonText}>
-            {isEditing ? 'Atualizar Obra' : 'Cadastrar Obra'}
-          </Text>
-        </TouchableOpacity>
+        <FormSection title="Ações" description="Salve para aplicar os dados informados à obra.">
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
+            <Text style={styles.saveButtonText}>
+              {isEditing ? 'Salvar alterações' : 'Salvar obra'}
+            </Text>
+          </TouchableOpacity>
+        </FormSection>
       </ScrollView>
     </View>
   );

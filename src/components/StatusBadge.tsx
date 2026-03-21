@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, BORDER_RADIUS } from '../constants/theme';
+import { BORDER_RADIUS } from '../constants/theme';
 
 interface StatusBadgeProps {
   status: string;

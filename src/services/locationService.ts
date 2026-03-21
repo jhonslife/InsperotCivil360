@@ -5,11 +5,19 @@ export interface LocationCoords {
   longitude: number;
 }
 
-export async function getCurrentLocation(): Promise<LocationCoords | null> {
+export interface LocationResult {
+  coords: LocationCoords | null;
+  message: string | null;
+}
+
+export async function getCurrentLocation(): Promise<LocationResult> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      return null;
+      return {
+        coords: null,
+        message: 'Permissão de localização negada. A inspeção será salva sem coordenadas GPS.',
+      };
     }
 
     const location = await Location.getCurrentPositionAsync({
@@ -17,10 +25,16 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
     });
 
     return {
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
+      coords: {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      },
+      message: null,
     };
   } catch {
-    return null;
+    return {
+      coords: null,
+      message: 'Não foi possível obter a localização atual. A inspeção será salva sem coordenadas GPS.',
+    };
   }
 }

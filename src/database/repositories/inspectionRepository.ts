@@ -1,9 +1,37 @@
 import { getDatabase } from '../connection';
 import { Inspection } from '../../models/Inspection';
-import { ChecklistItem } from '../../models/ChecklistItem';
+import { ChecklistItem, ChecklistStatus } from '../../models/ChecklistItem';
 import { InspectionType, INSPECTION_CHECKLISTS } from '../../constants/inspectionTypes';
 import { generateId } from '../../utils/generateId';
 import { nowISO } from '../../utils/formatDate';
+
+interface InspectionChecklistInput {
+  descricao: string;
+  ordem: number;
+  conforme?: ChecklistStatus;
+  observacao?: string;
+}
+
+interface InspectionCreateInput {
+  obra_id: string;
+  tipo: InspectionType;
+  data: string;
+  local_descricao: string;
+  latitude: number | null;
+  longitude: number | null;
+  observacoes: string;
+  status?: Inspection['status'];
+  assinatura_path?: string | null;
+  checklistItems?: InspectionChecklistInput[];
+}
+
+async function rollbackTransaction(db: Awaited<ReturnType<typeof getDatabase>>) {
+  try {
+    await db.execAsync('ROLLBACK;');
+  } catch {
+    // Ignore rollback errors when there is no open transaction.
+  }
+}
 
 export async function getAllInspections(): Promise<Inspection[]> {
   const db = await getDatabase();
@@ -38,35 +66,58 @@ export async function getInspectionsByObra(obraId: string): Promise<Inspection[]
   );
 }
 
-export async function createInspection(
-  data: {
-    obra_id: string;
-    tipo: InspectionType;
-    data: string;
-    local_descricao: string;
-    latitude: number | null;
-    longitude: number | null;
-    observacoes: string;
-  }
-): Promise<string> {
+export async function createInspection(data: InspectionCreateInput): Promise<string> {
   const db = await getDatabase();
   const id = generateId();
   const now = nowISO();
+  const checklistItems = data.checklistItems ?? INSPECTION_CHECKLISTS[data.tipo].map((template) => ({
+    descricao: template.descricao,
+    ordem: template.ordem,
+    conforme: 0 as ChecklistStatus,
+    observacao: '',
+  }));
 
-  await db.runAsync(
-    `INSERT INTO inspections (id, obra_id, tipo, data, local_descricao, latitude, longitude, observacoes, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?)`,
-    [id, data.obra_id, data.tipo, data.data, data.local_descricao, data.latitude, data.longitude, data.observacoes, now]
-  );
+  await db.execAsync('BEGIN IMMEDIATE TRANSACTION;');
 
-  const templates = INSPECTION_CHECKLISTS[data.tipo];
-  for (const template of templates) {
-    const itemId = generateId();
+  try {
     await db.runAsync(
-      `INSERT INTO checklist_items (id, inspection_id, descricao, conforme, observacao, ordem)
-       VALUES (?, ?, ?, 0, '', ?)`,
-      [itemId, id, template.descricao, template.ordem]
+      `INSERT INTO inspections (id, obra_id, tipo, data, local_descricao, latitude, longitude, observacoes, status, assinatura_path, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        data.obra_id,
+        data.tipo,
+        data.data,
+        data.local_descricao,
+        data.latitude,
+        data.longitude,
+        data.observacoes,
+        data.status ?? 'pendente',
+        data.assinatura_path ?? null,
+        now,
+      ]
     );
+
+    for (const item of checklistItems) {
+      const itemId = generateId();
+      await db.runAsync(
+        `INSERT INTO checklist_items (id, inspection_id, descricao, conforme, observacao, ordem)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          itemId,
+          id,
+          item.descricao,
+          item.conforme ?? 0,
+          item.observacao ?? '',
+          item.ordem,
+        ]
+      );
+    }
+
+    await db.execAsync('COMMIT;');
+  } catch (error) {
+    await rollbackTransaction(db);
+    throw error;
   }
 
   return id;
@@ -94,13 +145,32 @@ export async function updateChecklistItem(
 
 export async function updateInspectionStatus(
   id: string,
-  status: string
+  status: Inspection['status']
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     'UPDATE inspections SET status = ? WHERE id = ?',
     [status, id]
   );
+}
+
+export async function getInspectionReportData(id: string): Promise<{
+  inspection: Inspection;
+  checklistItems: ChecklistItem[];
+} | null> {
+  const [inspection, checklistItems] = await Promise.all([
+    getInspectionById(id),
+    getChecklistItems(id),
+  ]);
+
+  if (!inspection) {
+    return null;
+  }
+
+  return {
+    inspection,
+    checklistItems,
+  };
 }
 
 export async function updateInspectionSignature(

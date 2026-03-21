@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { Header } from '../../components/Header';
@@ -7,12 +7,13 @@ import { Inspection } from '../../models/Inspection';
 import { RNC } from '../../models/RNC';
 import { Ensaio } from '../../models/Ensaio';
 import { DiaryEntry } from '../../models/DiaryEntry';
-import { getAllInspections } from '../../database/repositories/inspectionRepository';
+import { getAllInspections, getInspectionReportData } from '../../database/repositories/inspectionRepository';
 import { getAllRNCs } from '../../database/repositories/rncRepository';
 import { getAllEnsaios } from '../../database/repositories/ensaioRepository';
 import { getAllDiaryEntries } from '../../database/repositories/diaryRepository';
 import { getPhotosByEntity } from '../../database/repositories/photoRepository';
 import { generateInspectionPDF, generateRNCPDF, generateEnsaioPDF, generateDiaryPDF } from '../../services/pdfService';
+import { getPhotoBase64 } from '../../services/photoService';
 import { INSPECTION_TYPE_LABELS, ENSAIO_TYPE_LABELS, EnsaioTipo } from '../../constants/inspectionTypes';
 import { formatDate } from '../../utils/formatDate';
 
@@ -50,8 +51,23 @@ export function ReportsScreen() {
     if (generating) return;
     setGenerating(true);
     try {
+      const reportData = await getInspectionReportData(item.id);
+      if (!reportData) {
+        Alert.alert('Erro', 'Inspeção não encontrada.');
+        return;
+      }
+
       const photos = await getPhotosByEntity('inspection', item.id);
-      await generateInspectionPDF(item, [], photos, null);
+      const signatureBase64 = reportData.inspection.assinatura_path
+        ? await getPhotoBase64(reportData.inspection.assinatura_path)
+        : null;
+
+      await generateInspectionPDF(
+        reportData.inspection,
+        reportData.checklistItems,
+        photos,
+        signatureBase64
+      );
     } catch {
       Alert.alert('Erro', 'Erro ao gerar PDF.');
     } finally {

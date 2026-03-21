@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { Header } from '../../components/Header';
 import { FormField } from '../../components/FormField';
+import { FormNotice } from '../../components/FormNotice';
+import { FormSection } from '../../components/FormSection';
 import { SelectField } from '../../components/SelectField';
 import { DatePickerField } from '../../components/DatePickerField';
 import { PhotoPicker } from '../../components/PhotoPicker';
@@ -11,7 +13,7 @@ import { Obra } from '../../models/Obra';
 import { DiaryEntry } from '../../models/DiaryEntry';
 import { Photo } from '../../models/Photo';
 import { getActiveObras } from '../../database/repositories/obraRepository';
-import { createDiaryEntry, getDiaryById } from '../../database/repositories/diaryRepository';
+import { createDiaryEntry, getDiaryById, updateDiaryEntry } from '../../database/repositories/diaryRepository';
 import { getPhotosByEntity } from '../../database/repositories/photoRepository';
 import { generateDiaryPDF } from '../../services/pdfService';
 import { CLIMA_ICONS, ClimaType } from '../../constants/inspectionTypes';
@@ -22,10 +24,10 @@ export function DiaryFormScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const diaryId = route.params?.diaryId;
-  const isViewing = !!diaryId;
 
   const [obras, setObras] = useState<Obra[]>([]);
   const [entry, setEntry] = useState<DiaryEntry | null>(null);
+  const [currentDiaryId, setCurrentDiaryId] = useState<string | null>(diaryId || null);
   const [obraId, setObraId] = useState('');
   const [data, setData] = useState(todayISO());
   const [equipe, setEquipe] = useState('');
@@ -35,22 +37,16 @@ export function DiaryFormScreen() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
-  useFocusEffect(
-    useCallback(() => {
-      loadObras();
-      if (isViewing) loadEntry();
-    }, [])
-  );
-
-  const loadObras = async () => {
+  const loadObras = useCallback(async () => {
     const data = await getActiveObras();
     setObras(data);
-  };
+  }, []);
 
-  const loadEntry = async () => {
-    const e = await getDiaryById(diaryId);
+  const loadEntry = useCallback(async (id: string) => {
+    const e = await getDiaryById(id);
     if (e) {
       setEntry(e);
+      setCurrentDiaryId(e.id);
       setObraId(e.obra_id);
       setData(e.data);
       setEquipe(e.equipe);
@@ -58,9 +54,20 @@ export function DiaryFormScreen() {
       setAtividades(e.atividades);
       setOcorrencias(e.ocorrencias || '');
     }
-    const pics = await getPhotosByEntity('diary', diaryId);
+    const pics = await getPhotosByEntity('diary', id);
     setPhotos(pics);
-  };
+  }, []);
+
+  const hasPersistedDiary = !!currentDiaryId;
+
+  useFocusEffect(
+    useCallback(() => {
+      loadObras();
+      if (currentDiaryId) {
+        loadEntry(currentDiaryId);
+      }
+    }, [currentDiaryId, loadEntry, loadObras])
+  );
 
   const validate = (): boolean => {
     const newErrors: Record<string, string | null> = {
@@ -75,25 +82,34 @@ export function DiaryFormScreen() {
   const handleSave = async () => {
     if (!validate()) return;
     try {
-      await createDiaryEntry({
+      const payload = {
         obra_id: obraId,
         data,
         equipe,
         clima: clima as ClimaType,
         atividades,
         ocorrencias: ocorrencias || '',
-      });
-      Alert.alert('Sucesso', 'Registro do diário salvo!');
-      navigation.goBack();
+      };
+
+      if (currentDiaryId) {
+        await updateDiaryEntry(currentDiaryId, payload);
+        await loadEntry(currentDiaryId);
+        Alert.alert('Sucesso', 'Alterações salvas com sucesso.');
+      } else {
+        const createdEntry = await createDiaryEntry(payload);
+        setCurrentDiaryId(createdEntry.id);
+        await loadEntry(createdEntry.id);
+        Alert.alert('Sucesso', 'Registro salvo com sucesso. Fotos e PDF já estão disponíveis.');
+      }
     } catch (error) {
       console.error('Erro ao salvar diário:', error);
-      Alert.alert('Erro', 'Erro ao salvar registro.');
+      Alert.alert('Erro', 'Não foi possível salvar o registro. Tente novamente.');
     }
   };
 
   const handlePhotosChanged = async () => {
-    if (diaryId || entry?.id) {
-      const pics = await getPhotosByEntity('diary', diaryId || entry!.id);
+    if (currentDiaryId) {
+      const pics = await getPhotosByEntity('diary', currentDiaryId);
       setPhotos(pics);
     }
   };
@@ -114,7 +130,7 @@ export function DiaryFormScreen() {
   return (
     <View style={styles.container}>
       <Header
-        title={isViewing ? 'Diário de Obra' : 'Novo Registro'}
+        title={hasPersistedDiary ? 'Diário de Obra' : 'Novo Registro'}
         showBack
         onBack={() => navigation.goBack()}
         showHome
@@ -125,68 +141,87 @@ export function DiaryFormScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <SelectField
-          label="Obra"
-          value={obraId}
-          options={obraOptions}
-          onSelect={setObraId}
-          error={errors.obraId}
-        />
-        <DatePickerField label="Data" value={data} onChange={setData} />
-
-        <SelectField
-          label="Clima"
-          value={clima}
-          options={climaOptions}
-          onSelect={setClima}
+        <FormNotice
+          title={hasPersistedDiary ? 'Registro salvo' : 'Diário em preenchimento'}
+          message={hasPersistedDiary
+            ? 'Você pode complementar informações do dia, anexar fotos e gerar o PDF deste registro.'
+            : 'Salve o registro para liberar anexos e o relatório em PDF sem sair desta tela.'}
+          tone={hasPersistedDiary ? 'success' : 'info'}
         />
 
-        <FormField
-          label="Equipe em Campo"
-          value={equipe}
-          onChangeText={setEquipe}
-          placeholder="Ex: 3 pedreiros, 2 serventes, 1 encarregado"
-          multiline
-          error={errors.equipe}
-        />
-
-        <FormField
-          label="Atividades Realizadas"
-          value={atividades}
-          onChangeText={setAtividades}
-          placeholder="Descreva as atividades desenvolvidas no dia"
-          multiline
-          error={errors.atividades}
-        />
-
-        <FormField
-          label="Ocorrências (opcional)"
-          value={ocorrencias}
-          onChangeText={setOcorrencias}
-          placeholder="Registre ocorrências, paralisações, acidentes, etc."
-          multiline
-        />
-
-        {isViewing && entry && (
-          <PhotoPicker
-            photos={photos}
-            entityType="diary"
-            entityId={diaryId || entry.id}
-            onPhotosChanged={handlePhotosChanged}
+        <FormSection title="Dados do dia" description="Informe obra, data e condições gerais antes de detalhar a execução.">
+          <SelectField
+            label="Obra"
+            value={obraId}
+            options={obraOptions}
+            onSelect={setObraId}
+            error={errors.obraId}
           />
-        )}
+          <DatePickerField label="Data" value={data} onChange={setData} />
 
-        {!isViewing && (
+          <SelectField
+            label="Clima"
+            value={clima}
+            options={climaOptions}
+            onSelect={setClima}
+          />
+        </FormSection>
+
+        <FormSection title="Atividades e ocorrências" description="Descreva a equipe em campo, o que foi executado e qualquer intercorrência relevante.">
+          <FormField
+            label="Equipe em Campo"
+            value={equipe}
+            onChangeText={setEquipe}
+            placeholder="Ex: 3 pedreiros, 2 serventes, 1 encarregado"
+            multiline
+            error={errors.equipe}
+          />
+
+          <FormField
+            label="Atividades Realizadas"
+            value={atividades}
+            onChangeText={setAtividades}
+            placeholder="Descreva as atividades desenvolvidas no dia"
+            multiline
+            error={errors.atividades}
+          />
+
+          <FormField
+            label="Ocorrências (opcional)"
+            value={ocorrencias}
+            onChangeText={setOcorrencias}
+            placeholder="Registre ocorrências, paralisações, acidentes, etc."
+            multiline
+          />
+        </FormSection>
+
+        <FormSection title="Anexos" description="Inclua fotos do dia para compor o histórico da obra e o relatório final.">
+          {hasPersistedDiary ? (
+            <PhotoPicker
+              photos={photos}
+              entityType="diary"
+              entityId={currentDiaryId!}
+              onPhotosChanged={handlePhotosChanged}
+            />
+          ) : (
+            <FormNotice
+              title="Anexos liberados após o primeiro save"
+              message="Assim que o diário for salvo, você poderá adicionar fotos e gerar o PDF sem sair desta tela."
+            />
+          )}
+        </FormSection>
+
+        <FormSection title="Ações" description="Salve para manter o histórico do dia atualizado e liberar seus anexos e relatório.">
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
-            <Text style={styles.saveButtonText}>Salvar Registro</Text>
+            <Text style={styles.saveButtonText}>{hasPersistedDiary ? 'Salvar alterações' : 'Salvar registro'}</Text>
           </TouchableOpacity>
-        )}
 
-        {isViewing && (
-          <TouchableOpacity style={styles.pdfButton} onPress={handleGeneratePDF} activeOpacity={0.8}>
-            <Text style={styles.pdfButtonText}>Gerar Relatório PDF</Text>
-          </TouchableOpacity>
-        )}
+          {hasPersistedDiary && (
+            <TouchableOpacity style={styles.pdfButton} onPress={handleGeneratePDF} activeOpacity={0.8}>
+              <Text style={styles.pdfButtonText}>Gerar PDF do diário</Text>
+            </TouchableOpacity>
+          )}
+        </FormSection>
       </ScrollView>
     </View>
   );

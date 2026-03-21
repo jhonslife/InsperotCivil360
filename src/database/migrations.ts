@@ -100,6 +100,7 @@ export async function runMigrations(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_inspections_obra_id ON inspections(obra_id);
     CREATE INDEX IF NOT EXISTS idx_checklist_inspection_id ON checklist_items(inspection_id);
     CREATE INDEX IF NOT EXISTS idx_rnc_obra_id ON rnc(obra_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_rnc_numero_unique ON rnc(numero);
     CREATE INDEX IF NOT EXISTS idx_ensaios_obra_id ON ensaios(obra_id);
     CREATE INDEX IF NOT EXISTS idx_diary_obra_id ON diary_entries(obra_id);
     CREATE INDEX IF NOT EXISTS idx_photos_entity ON photos(entity_type, entity_id);

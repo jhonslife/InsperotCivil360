@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS, FONTS } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { Header } from '../../components/Header';
 import { FormField } from '../../components/FormField';
+import { FormNotice } from '../../components/FormNotice';
+import { FormSection } from '../../components/FormSection';
 import { SelectField } from '../../components/SelectField';
 import { DatePickerField } from '../../components/DatePickerField';
 import { PhotoPicker } from '../../components/PhotoPicker';
@@ -11,7 +13,7 @@ import { Obra } from '../../models/Obra';
 import { Ensaio } from '../../models/Ensaio';
 import { Photo } from '../../models/Photo';
 import { getActiveObras } from '../../database/repositories/obraRepository';
-import { createEnsaio, getEnsaioById } from '../../database/repositories/ensaioRepository';
+import { createEnsaio, getEnsaioById, updateEnsaio } from '../../database/repositories/ensaioRepository';
 import { getPhotosByEntity } from '../../database/repositories/photoRepository';
 import { generateEnsaioPDF } from '../../services/pdfService';
 import { ENSAIO_TYPE_LABELS, EnsaioTipo, ENSAIO_LIMITS } from '../../constants/inspectionTypes';
@@ -22,10 +24,10 @@ export function EnsaioFormScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const ensaioId = route.params?.ensaioId;
-  const isViewing = !!ensaioId;
 
   const [obras, setObras] = useState<Obra[]>([]);
   const [ensaio, setEnsaio] = useState<Ensaio | null>(null);
+  const [currentEnsaioId, setCurrentEnsaioId] = useState<string | null>(ensaioId || null);
   const [obraId, setObraId] = useState('');
   const [tipoEnsaio, setTipoEnsaio] = useState<string>('');
   const [data, setData] = useState(todayISO());
@@ -50,22 +52,16 @@ export function EnsaioFormScreen() {
 
   const [alertMessages, setAlertMessages] = useState<string[]>([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadObras();
-      if (isViewing) loadEnsaio();
-    }, [])
-  );
-
-  const loadObras = async () => {
+  const loadObras = useCallback(async () => {
     const data = await getActiveObras();
     setObras(data);
-  };
+  }, []);
 
-  const loadEnsaio = async () => {
-    const e = await getEnsaioById(ensaioId);
+  const loadEnsaio = useCallback(async (id: string) => {
+    const e = await getEnsaioById(id);
     if (e) {
       setEnsaio(e);
+      setCurrentEnsaioId(e.id);
       setObraId(e.obra_id);
       setTipoEnsaio(e.tipo_ensaio);
       setData(e.data);
@@ -81,9 +77,20 @@ export function EnsaioFormScreen() {
       if (e.deflexao != null) setDeflexao(String(e.deflexao));
       if (e.alerta) setAlertMessages(e.alerta.split('; '));
     }
-    const pics = await getPhotosByEntity('ensaio', ensaioId);
+    const pics = await getPhotosByEntity('ensaio', id);
     setPhotos(pics);
-  };
+  }, []);
+
+  const hasPersistedEnsaio = !!currentEnsaioId;
+
+  useFocusEffect(
+    useCallback(() => {
+      loadObras();
+      if (currentEnsaioId) {
+        loadEnsaio(currentEnsaioId);
+      }
+    }, [currentEnsaioId, loadEnsaio, loadObras])
+  );
 
   const checkAlerts = () => {
     const alerts: string[] = [];
@@ -136,7 +143,7 @@ export function EnsaioFormScreen() {
     const alerts = checkAlerts();
 
     try {
-      const newEnsaio = await createEnsaio({
+      const payload = {
         obra_id: obraId,
         tipo_ensaio: tipoEnsaio as EnsaioTipo,
         data,
@@ -150,25 +157,36 @@ export function EnsaioFormScreen() {
         deflexao: deflexao ? parseFloat(deflexao) : null,
         resultado,
         situacao: situacao as 'conforme' | 'nao_conforme',
-      });
+      };
 
-      if (alerts.length > 0) {
-        Alert.alert('⚠️ Atenção', alerts.join('\n\n'), [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+      if (currentEnsaioId) {
+        await updateEnsaio(currentEnsaioId, payload);
+        await loadEnsaio(currentEnsaioId);
+        Alert.alert('Sucesso', 'Alterações salvas com sucesso.');
       } else {
-        Alert.alert('Sucesso', 'Ensaio registrado com sucesso!');
-        navigation.goBack();
+        const createdEnsaio = await createEnsaio(payload);
+        setCurrentEnsaioId(createdEnsaio.id);
+        await loadEnsaio(createdEnsaio.id);
+
+        if (alerts.length > 0) {
+          Alert.alert(
+            'Atenção',
+            `Ensaio salvo com alertas:\n\n${alerts.join('\n\n')}\n\nVocê já pode anexar fotos e gerar o PDF.`,
+          );
+          return;
+        }
+
+        Alert.alert('Sucesso', 'Ensaio salvo com sucesso. Fotos e PDF já estão disponíveis.');
       }
     } catch (error) {
       console.error('Erro ao salvar ensaio:', error);
-      Alert.alert('Erro', 'Erro ao salvar ensaio.');
+      Alert.alert('Erro', 'Não foi possível salvar o ensaio. Tente novamente.');
     }
   };
 
   const handlePhotosChanged = async () => {
-    if (ensaioId || ensaio?.id) {
-      const pics = await getPhotosByEntity('ensaio', ensaioId || ensaio!.id);
+    if (currentEnsaioId) {
+      const pics = await getPhotosByEntity('ensaio', currentEnsaioId);
       setPhotos(pics);
     }
   };
@@ -191,7 +209,7 @@ export function EnsaioFormScreen() {
   return (
     <View style={styles.container}>
       <Header
-        title={isViewing ? ENSAIO_TYPE_LABELS[(ensaio?.tipo_ensaio as EnsaioTipo) || 'concreto'] : 'Novo Ensaio'}
+        title={hasPersistedEnsaio ? ENSAIO_TYPE_LABELS[(ensaio?.tipo_ensaio as EnsaioTipo) || 'concreto'] : 'Novo Ensaio'}
         showBack
         onBack={() => navigation.goBack()}
         showHome
@@ -202,141 +220,159 @@ export function EnsaioFormScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <SelectField
-          label="Obra"
-          value={obraId}
-          options={obraOptions}
-          onSelect={setObraId}
-          error={errors.obraId}
-        />
-        <SelectField
-          label="Tipo de Ensaio"
-          value={tipoEnsaio}
-          options={tipoOptions}
-          onSelect={(v) => { setTipoEnsaio(v); setAlertMessages([]); }}
-          error={errors.tipoEnsaio}
-        />
-        <DatePickerField label="Data" value={data} onChange={setData} />
-        <FormField
-          label="Local"
-          value={local}
-          onChangeText={setLocal}
-          placeholder="Local do ensaio"
-          error={errors.local}
+        <FormNotice
+          title={hasPersistedEnsaio ? 'Registro salvo' : 'Ensaio em preenchimento'}
+          message={hasPersistedEnsaio
+            ? 'Você pode revisar resultados, incluir anexos e emitir o PDF a partir deste registro.'
+            : 'Preencha os dados do ensaio e salve para liberar anexos e o relatório em PDF.'}
+          tone={hasPersistedEnsaio ? 'success' : 'info'}
         />
 
-        {/* Dynamic fields based on type */}
-        {tipoEnsaio === 'concreto' && (
-          <>
-            <FormField
-              label="Slump - Abatimento (mm)"
-              value={slump}
-              onChangeText={(v) => { setSlump(v); }}
-              placeholder="Ex: 100"
-              keyboardType="decimal-pad"
-            />
-            <FormField
-              label="Temperatura (°C)"
-              value={temperatura}
-              onChangeText={setTemperatura}
-              placeholder="Ex: 28"
-              keyboardType="decimal-pad"
-            />
-            <FormField
-              label="Corpo de Prova"
-              value={corpoProva}
-              onChangeText={setCorpoProva}
-              placeholder="Identificação do CP"
-            />
-          </>
-        )}
-
-        {tipoEnsaio === 'graute' && (
-          <>
-            <FormField
-              label="Fluidez (s)"
-              value={fluidez}
-              onChangeText={setFluidez}
-              placeholder="Ex: 25"
-              keyboardType="decimal-pad"
-            />
-            <FormField
-              label="Resistência (MPa)"
-              value={resistencia}
-              onChangeText={setResistencia}
-              placeholder="Ex: 30"
-              keyboardType="decimal-pad"
-            />
-          </>
-        )}
-
-        {tipoEnsaio === 'pavimentacao' && (
-          <>
-            <FormField
-              label="Compactação (%)"
-              value={compactacao}
-              onChangeText={setCompactacao}
-              placeholder="Ex: 98"
-              keyboardType="decimal-pad"
-            />
-            <FormField
-              label="Deflexão - Viga Benkelman (x 0.01mm)"
-              value={deflexao}
-              onChangeText={setDeflexao}
-              placeholder="Ex: 75"
-              keyboardType="decimal-pad"
-            />
-          </>
-        )}
-
-        <FormField
-          label="Resultado"
-          value={resultado}
-          onChangeText={setResultado}
-          placeholder="Resultado geral do ensaio"
-          multiline
-        />
-
-        <SelectField
-          label="Situação"
-          value={situacao}
-          options={situacaoOptions}
-          onSelect={setSituacao}
-        />
-
-        {/* Alerts */}
-        {alertMessages.length > 0 && (
-          <View style={styles.alertContainer}>
-            {alertMessages.map((msg, idx) => (
-              <View key={idx} style={styles.alertBox}>
-                <Text style={styles.alertIcon}>⚠️</Text>
-                <Text style={styles.alertText}>{msg}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Photos */}
-        {(isViewing && ensaio) && (
-          <PhotoPicker
-            photos={photos}
-            entityType="ensaio"
-            entityId={ensaioId || ensaio.id}
-            onPhotosChanged={handlePhotosChanged}
+        <FormSection title="Dados do ensaio" description="Defina obra, tipo, data e local antes de informar as medições.">
+          <SelectField
+            label="Obra"
+            value={obraId}
+            options={obraOptions}
+            onSelect={setObraId}
+            error={errors.obraId}
           />
+          <SelectField
+            label="Tipo de Ensaio"
+            value={tipoEnsaio}
+            options={tipoOptions}
+            onSelect={(v) => { setTipoEnsaio(v); setAlertMessages([]); }}
+            error={errors.tipoEnsaio}
+          />
+          <DatePickerField label="Data" value={data} onChange={setData} />
+          <FormField
+            label="Local"
+            value={local}
+            onChangeText={setLocal}
+            placeholder="Local do ensaio"
+            error={errors.local}
+          />
+        </FormSection>
+
+        <FormSection title="Medições e resultados" description="Os campos variam conforme o tipo de ensaio selecionado.">
+          {tipoEnsaio === 'concreto' && (
+            <>
+              <FormField
+                label="Slump - Abatimento (mm)"
+                value={slump}
+                onChangeText={setSlump}
+                placeholder="Ex: 100"
+                keyboardType="decimal-pad"
+              />
+              <FormField
+                label="Temperatura (°C)"
+                value={temperatura}
+                onChangeText={setTemperatura}
+                placeholder="Ex: 28"
+                keyboardType="decimal-pad"
+              />
+              <FormField
+                label="Corpo de Prova"
+                value={corpoProva}
+                onChangeText={setCorpoProva}
+                placeholder="Identificação do CP"
+              />
+            </>
+          )}
+
+          {tipoEnsaio === 'graute' && (
+            <>
+              <FormField
+                label="Fluidez (s)"
+                value={fluidez}
+                onChangeText={setFluidez}
+                placeholder="Ex: 25"
+                keyboardType="decimal-pad"
+              />
+              <FormField
+                label="Resistência (MPa)"
+                value={resistencia}
+                onChangeText={setResistencia}
+                placeholder="Ex: 30"
+                keyboardType="decimal-pad"
+              />
+            </>
+          )}
+
+          {tipoEnsaio === 'pavimentacao' && (
+            <>
+              <FormField
+                label="Compactação (%)"
+                value={compactacao}
+                onChangeText={setCompactacao}
+                placeholder="Ex: 98"
+                keyboardType="decimal-pad"
+              />
+              <FormField
+                label="Deflexão - Viga Benkelman (x 0.01mm)"
+                value={deflexao}
+                onChangeText={setDeflexao}
+                placeholder="Ex: 75"
+                keyboardType="decimal-pad"
+              />
+            </>
+          )}
+
+          <FormField
+            label="Resultado"
+            value={resultado}
+            onChangeText={setResultado}
+            placeholder="Resultado geral do ensaio"
+            multiline
+          />
+
+          <SelectField
+            label="Situação"
+            value={situacao}
+            options={situacaoOptions}
+            onSelect={setSituacao}
+          />
+        </FormSection>
+
+        {alertMessages.length > 0 && (
+          <FormSection title="Alertas técnicos" description="Valores fora das faixas de referência merecem revisão antes da emissão.">
+            <View style={styles.alertContainer}>
+              {alertMessages.map((msg, idx) => (
+                <View key={idx} style={styles.alertBox}>
+                  <Text style={styles.alertIcon}>⚠️</Text>
+                  <Text style={styles.alertText}>{msg}</Text>
+                </View>
+              ))}
+            </View>
+          </FormSection>
         )}
 
-        {!isViewing && (
+        <FormSection title="Anexos" description="Inclua fotos de apoio para documentar a execução do ensaio.">
+          {hasPersistedEnsaio ? (
+            <PhotoPicker
+              photos={photos}
+              entityType="ensaio"
+              entityId={currentEnsaioId!}
+              onPhotosChanged={handlePhotosChanged}
+            />
+          ) : (
+            <FormNotice
+              title="Anexos liberados após o primeiro save"
+              message="Assim que o ensaio for salvo, você poderá anexar fotos e gerar o PDF sem sair desta tela."
+            />
+          )}
+        </FormSection>
+
+        <FormSection title="Ações" description="Salve para manter o ensaio registrado e disponibilizar seus anexos e relatório.">
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
-            <Text style={styles.saveButtonText}>Registrar Ensaio</Text>
+            <Text style={styles.saveButtonText}>{hasPersistedEnsaio ? 'Salvar alterações' : 'Salvar ensaio'}</Text>
           </TouchableOpacity>
-        )}
 
-        {isViewing && (
-          <TouchableOpacity style={styles.pdfButton} onPress={handleGeneratePDF} activeOpacity={0.8}>
-            <Text style={styles.pdfButtonText}>Gerar Relatório PDF</Text>
-          </TouchableOpacity>
-        )}
+          {hasPersistedEnsaio && (
+            <TouchableOpacity style={styles.pdfButton} onPress={handleGeneratePDF} activeOpacity={0.8}>
+              <Text style={styles.pdfButtonText}>Gerar PDF do ensaio</Text>
+            </TouchableOpacity>
+          )}
+        </FormSection>
       </ScrollView>
     </View>
   );

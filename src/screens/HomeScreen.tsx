@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, SPACING, SHADOWS, BORDER_RADIUS, FONTS } from '../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { StatCard } from '../components/StatCard';
 import { MenuButton } from '../components/MenuButton';
 import { useApp } from '../contexts/AppContext';
@@ -14,7 +14,7 @@ export function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshStats();
-    }, [])
+    }, [refreshStats])
   );
 
   return (

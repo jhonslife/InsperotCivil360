@@ -4,6 +4,15 @@ import { generateId } from '../../utils/generateId';
 import { nowISO } from '../../utils/formatDate';
 import { ClimaType } from '../../constants/inspectionTypes';
 
+interface DiaryEntryInput {
+  obra_id: string;
+  data: string;
+  equipe: string;
+  clima: ClimaType;
+  atividades: string;
+  ocorrencias: string;
+}
+
 export async function getAllDiaryEntries(): Promise<DiaryEntry[]> {
   const db = await getDatabase();
   return await db.getAllAsync<DiaryEntry>(
@@ -25,14 +34,7 @@ export async function getDiaryById(id: string): Promise<DiaryEntry | null> {
   );
 }
 
-export async function createDiaryEntry(data: {
-  obra_id: string;
-  data: string;
-  equipe: string;
-  clima: ClimaType;
-  atividades: string;
-  ocorrencias: string;
-}): Promise<DiaryEntry> {
+export async function createDiaryEntry(data: DiaryEntryInput): Promise<DiaryEntry> {
   const db = await getDatabase();
   const id = generateId();
   const now = nowISO();
@@ -48,4 +50,14 @@ export async function createDiaryEntry(data: {
     ...data,
     created_at: now,
   };
+}
+
+export async function updateDiaryEntry(id: string, data: DiaryEntryInput): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE diary_entries
+     SET obra_id = ?, data = ?, equipe = ?, clima = ?, atividades = ?, ocorrencias = ?
+     WHERE id = ?`,
+    [data.obra_id, data.data, data.equipe, data.clima, data.atividades, data.ocorrencias, id]
+  );
 }

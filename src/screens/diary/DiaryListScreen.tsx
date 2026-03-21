@@ -1,11 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS, FONTS } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { Header } from '../../components/Header';
-import { StatusBadge } from '../../components/StatusBadge';
 import { DiaryEntry } from '../../models/DiaryEntry';
-import { Obra } from '../../models/Obra';
 import { getAllDiaryEntries } from '../../database/repositories/diaryRepository';
 import { getObraById } from '../../database/repositories/obraRepository';
 import { CLIMA_ICONS } from '../../constants/inspectionTypes';

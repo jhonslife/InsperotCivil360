@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
+import { COLORS, SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
 
 interface StatCardProps {
   value: number;

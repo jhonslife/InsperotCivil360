@@ -2,19 +2,27 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
-import { Photo } from '../models/Photo';
-import { takePhoto, pickPhoto } from '../services/photoService';
-import { PhotoEntityType } from '../models/Photo';
+import { Photo, PhotoEntityType } from '../models/Photo';
+import { takePhoto, pickPhoto, deleteStoredFile } from '../services/photoService';
 import { addPhoto, deletePhoto } from '../database/repositories/photoRepository';
 
 interface PhotoPickerProps {
   photos: Photo[];
   entityType: PhotoEntityType;
-  entityId: string;
+  entityId?: string;
   onPhotosChanged: () => void;
+  onAddPhoto?: (uri: string) => Promise<void>;
+  onDeletePhoto?: (photo: Photo) => Promise<void>;
 }
 
-export function PhotoPicker({ photos, entityType, entityId, onPhotosChanged }: PhotoPickerProps) {
+export function PhotoPicker({
+  photos,
+  entityType,
+  entityId,
+  onPhotosChanged,
+  onAddPhoto,
+  onDeletePhoto,
+}: PhotoPickerProps) {
   const handleAddPhoto = () => {
     Alert.alert('Adicionar Foto', 'Escolha a origem da foto', [
       {
@@ -22,7 +30,11 @@ export function PhotoPicker({ photos, entityType, entityId, onPhotosChanged }: P
         onPress: async () => {
           const uri = await takePhoto();
           if (uri) {
-            await addPhoto(entityType, entityId, uri);
+            if (onAddPhoto) {
+              await onAddPhoto(uri);
+            } else if (entityId) {
+              await addPhoto(entityType, entityId, uri);
+            }
             onPhotosChanged();
           }
         },
@@ -32,7 +44,11 @@ export function PhotoPicker({ photos, entityType, entityId, onPhotosChanged }: P
         onPress: async () => {
           const uri = await pickPhoto();
           if (uri) {
-            await addPhoto(entityType, entityId, uri);
+            if (onAddPhoto) {
+              await onAddPhoto(uri);
+            } else if (entityId) {
+              await addPhoto(entityType, entityId, uri);
+            }
             onPhotosChanged();
           }
         },
@@ -48,7 +64,12 @@ export function PhotoPicker({ photos, entityType, entityId, onPhotosChanged }: P
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
-          await deletePhoto(photo.id);
+          if (onDeletePhoto) {
+            await onDeletePhoto(photo);
+          } else {
+            await deleteStoredFile(photo.uri);
+            await deletePhoto(photo.id);
+          }
           onPhotosChanged();
         },
       },
