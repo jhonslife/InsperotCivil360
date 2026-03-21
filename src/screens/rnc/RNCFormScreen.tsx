@@ -108,6 +108,7 @@ export function RNCFormScreen() {
       }
       navigation.goBack();
     } catch (error) {
+      console.error('Erro ao salvar RNC:', error);
       Alert.alert('Erro', 'Erro ao salvar RNC.');
     }
   };

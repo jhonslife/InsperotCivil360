@@ -161,6 +161,7 @@ export function EnsaioFormScreen() {
         navigation.goBack();
       }
     } catch (error) {
+      console.error('Erro ao salvar ensaio:', error);
       Alert.alert('Erro', 'Erro ao salvar ensaio.');
     }
   };

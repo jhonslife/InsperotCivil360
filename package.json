@@ -21,6 +21,7 @@
     "date-fns": "^3.6.0",
     "expo": "~55.0.8",
     "expo-camera": "~55.0.0",
+    "expo-crypto": "~55.0.10",
     "expo-file-system": "~55.0.0",
     "expo-font": "~55.0.4",
     "expo-image-picker": "~55.0.0",
@@ -35,12 +36,12 @@
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
     "react-native-signature-canvas": "^4.7.2",
-    "react-native-webview": "13.16.0",
-    "uuid": "^9.0.0"
+    "react-native-webview": "13.16.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "@types/uuid": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~55.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -85,6 +85,7 @@ export function ObraFormScreen() {
       }
       navigation.goBack();
     } catch (error) {
+      console.error('Erro ao salvar obra:', error);
       Alert.alert('Erro', 'Erro ao salvar obra. Tente novamente.');
     }
   };

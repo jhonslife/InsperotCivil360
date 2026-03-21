@@ -86,6 +86,7 @@ export function DiaryFormScreen() {
       Alert.alert('Sucesso', 'Registro do diário salvo!');
       navigation.goBack();
     } catch (error) {
+      console.error('Erro ao salvar diário:', error);
       Alert.alert('Erro', 'Erro ao salvar registro.');
     }
   };
