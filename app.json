@@ -48,7 +48,8 @@
           "photosPermission": "O app precisa acessar a galeria para anexar fotos."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "extra": {
       "eas": {
