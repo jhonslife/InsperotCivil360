@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "InsperotCivil360Temp",
-    "slug": "InsperotCivil360Temp",
+    "name": "Inspetor Civil 360",
+    "slug": "inspetor-civil-360",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,22 +9,50 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1B3A5C"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.josevital.inspetorcivil360",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O app precisa acessar a câmera para registrar fotos das inspeções.",
+        "NSPhotoLibraryUsageDescription": "O app precisa acessar a galeria para anexar fotos às inspeções.",
+        "NSLocationWhenInUseUsageDescription": "O app precisa acessar a localização para registrar coordenadas das inspeções."
+      }
     },
     "android": {
+      "package": "com.josevital.inspetorcivil360",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1B3A5C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-location",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O app precisa acessar a galeria para anexar fotos."
+        }
+      ],
+      "expo-sqlite"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     }
   }
 }
