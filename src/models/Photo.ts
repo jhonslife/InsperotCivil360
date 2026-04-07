@@ -1,4 +1,7 @@
-export type PhotoEntityType = 'inspection' | 'rnc' | 'diary' | 'ensaio';
+export type PhotoEntityType =
+  | 'inspection' | 'rnc' | 'diary' | 'ensaio'
+  | 'fundacao' | 'concreto' | 'armadura' | 'formas'
+  | 'vedacao' | 'pavimentacao' | 'pav_ensaio' | 'rompimento_cp';
 
 export interface Photo {
   id: string;

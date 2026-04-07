@@ -1,4 +1,11 @@
-export type InspectionType = 'fundacao' | 'estrutura' | 'oae' | 'pavimentacao';
+export type InspectionType =
+  | 'fundacao_rasa'
+  | 'fundacao_profunda'
+  | 'bloco_coroamento'
+  | 'estrutura'
+  | 'oae'
+  | 'pavimentacao'
+  | 'vedacao';
 
 export interface ChecklistTemplate {
   descricao: string;
@@ -6,31 +13,75 @@ export interface ChecklistTemplate {
 }
 
 export const INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
-  fundacao: 'Fundação',
-  estrutura: 'Estrutura',
+  fundacao_rasa: 'Fundação Rasa',
+  fundacao_profunda: 'Fundação Profunda',
+  bloco_coroamento: 'Bloco de Coroamento',
+  estrutura: 'Concreto e Estrutura',
   oae: 'OAE (Pontes/Viadutos)',
   pavimentacao: 'Pavimentação',
+  vedacao: 'Vedação',
+};
+
+export const INSPECTION_TYPE_ICONS: Record<InspectionType, string> = {
+  fundacao_rasa: 'home-foundation',
+  fundacao_profunda: 'arrow-down-bold-box',
+  bloco_coroamento: 'cube-outline',
+  estrutura: 'pillar',
+  oae: 'bridge',
+  pavimentacao: 'road',
+  vedacao: 'wall',
 };
 
 export const INSPECTION_CHECKLISTS: Record<InspectionType, ChecklistTemplate[]> = {
-  fundacao: [
-    { descricao: 'Escavação conforme projeto', ordem: 1 },
-    { descricao: 'Fundo regularizado', ordem: 2 },
-    { descricao: 'Solo adequado', ordem: 3 },
-    { descricao: 'Armadura conforme projeto', ordem: 4 },
-    { descricao: 'Cobrimento atendido', ordem: 5 },
-    { descricao: 'Espaçadores instalados', ordem: 6 },
-    { descricao: 'Forma estanque', ordem: 7 },
-    { descricao: 'Liberação para concretagem', ordem: 8 },
+  fundacao_rasa: [
+    { descricao: 'Locação conferida conforme projeto', ordem: 1 },
+    { descricao: 'Escavação nas dimensões corretas', ordem: 2 },
+    { descricao: 'Fundo da cava regularizado e limpo', ordem: 3 },
+    { descricao: 'Solo com capacidade adequada', ordem: 4 },
+    { descricao: 'Lastro de concreto magro executado', ordem: 5 },
+    { descricao: 'Armadura conforme projeto', ordem: 6 },
+    { descricao: 'Cobrimento respeitado', ordem: 7 },
+    { descricao: 'Forma alinhada e nivelada', ordem: 8 },
+    { descricao: 'Conferência de embutidos', ordem: 9 },
+    { descricao: 'Liberação para concretagem', ordem: 10 },
+    { descricao: 'Slump test realizado', ordem: 11 },
+    { descricao: 'Cura iniciada corretamente', ordem: 12 },
+  ],
+  fundacao_profunda: [
+    { descricao: 'Locação da estaca conferida', ordem: 1 },
+    { descricao: 'Equipamento calibrado', ordem: 2 },
+    { descricao: 'Diâmetro conforme projeto', ordem: 3 },
+    { descricao: 'Profundidade atingida', ordem: 4 },
+    { descricao: 'Limpeza do furo (quando aplicável)', ordem: 5 },
+    { descricao: 'Concreto conforme especificação', ordem: 6 },
+    { descricao: 'Registro de concretagem', ordem: 7 },
+    { descricao: 'Controle de volume aplicado', ordem: 8 },
+    { descricao: 'Ensaio de integridade (PIT)', ordem: 9 },
+    { descricao: 'Estaca sem desvio ou falha', ordem: 10 },
+  ],
+  bloco_coroamento: [
+    { descricao: 'Cabeça das estacas regularizadas', ordem: 1 },
+    { descricao: 'Armadura conforme projeto', ordem: 2 },
+    { descricao: 'Amarração adequada', ordem: 3 },
+    { descricao: 'Cobrimento correto', ordem: 4 },
+    { descricao: 'Forma alinhada', ordem: 5 },
+    { descricao: 'Limpeza antes da concretagem', ordem: 6 },
+    { descricao: 'Liberação da engenharia', ordem: 7 },
+    { descricao: 'Controle de concreto (slump e fck)', ordem: 8 },
+    { descricao: 'Cura realizada', ordem: 9 },
   ],
   estrutura: [
-    { descricao: 'Formas alinhadas e aprumadas', ordem: 1 },
-    { descricao: 'Armadura conforme projeto', ordem: 2 },
-    { descricao: 'Cobrimento adequado', ordem: 3 },
-    { descricao: 'Espaçadores posicionados', ordem: 4 },
-    { descricao: 'Escoramentos verificados', ordem: 5 },
-    { descricao: 'Juntas de concretagem tratadas', ordem: 6 },
-    { descricao: 'Liberação para concretagem', ordem: 7 },
+    { descricao: 'Forma limpa e estanque', ordem: 1 },
+    { descricao: 'Armadura posicionada corretamente', ordem: 2 },
+    { descricao: 'Espaçadores instalados', ordem: 3 },
+    { descricao: 'Conferência de cobrimento', ordem: 4 },
+    { descricao: 'Slump test dentro do padrão', ordem: 5 },
+    { descricao: 'Tempo de transporte adequado', ordem: 6 },
+    { descricao: 'Lançamento sem segregação', ordem: 7 },
+    { descricao: 'Adensamento correto (vibrador)', ordem: 8 },
+    { descricao: 'Acabamento adequado', ordem: 9 },
+    { descricao: 'Cura iniciada no tempo correto', ordem: 10 },
+    { descricao: 'Registro de rastreabilidade', ordem: 11 },
   ],
   oae: [
     { descricao: 'Bloco de fundação conforme projeto', ordem: 1 },
@@ -49,6 +100,17 @@ export const INSPECTION_CHECKLISTS: Record<InspectionType, ChecklistTemplate[]> 
     { descricao: 'Espessura da camada verificada', ordem: 5 },
     { descricao: 'Compactação dentro do especificado', ordem: 6 },
     { descricao: 'Acabamento superficial adequado', ordem: 7 },
+  ],
+  vedacao: [
+    { descricao: 'Material conforme especificação', ordem: 1 },
+    { descricao: 'Base nivelada', ordem: 2 },
+    { descricao: 'Prumo e alinhamento corretos', ordem: 3 },
+    { descricao: 'Junta com espessura adequada', ordem: 4 },
+    { descricao: 'Amarração correta', ordem: 5 },
+    { descricao: 'Vergas e contravergas executadas', ordem: 6 },
+    { descricao: 'Fixação adequada (drywall)', ordem: 7 },
+    { descricao: 'Ausência de trincas', ordem: 8 },
+    { descricao: 'Limpeza da execução', ordem: 9 },
   ],
 };
 

@@ -1,0 +1,206 @@
+{
+  // ╔══════════════════════════════════════════════════════════════════╗
+  // ║  COPILOT AGENT TEMPLATE — VS Code Settings                     ║
+  // ║  Optimized for stability (prevents Server Error 500)           ║
+  // ║  Last updated: 2026-03-05                                      ║
+  // ╚══════════════════════════════════════════════════════════════════╝
+
+  // ══════════════════════════════════════════════════════════════════
+  // COPILOT — Agent Mode
+  // ══════════════════════════════════════════════════════════════════
+
+  // Agent Mode — balanced limit (prevents payload overflow → Server Error 500)
+  // 75 is sufficient for 95% of complex multi-agent tasks.
+  "chat.agent.maxRequests": 75,
+  "chat.agent.enabled": true,
+
+  // Extended Thinking — budget for reasoning (tokens)
+  // 16000 is generous for complex reasoning without exceeding API limits.
+  // Higher values (32000+) combined with many MCP tools cause 500 errors.
+  "github.copilot.chat.anthropic.thinking.budgetTokens": 16000,
+
+  // Agent capabilities
+  "github.copilot.chat.agent.runTasks": true,
+  "github.copilot.chat.agent.thinkingProcess": true,
+  "github.copilot.chat.agent.autoFix": true,
+
+  // Enhanced context gathering
+  "github.copilot.chat.contextualEncoding.enabled": true,
+  "github.copilot.chat.search.semanticTextResults": true,
+  "github.copilot.chat.symbolicMath.enabled": false,
+
+  // Experimental features — disabled for stability
+  "chat.experimental.multiDiffEditor.enabled": false,
+
+  // ══════════════════════════════════════════════════════════════════
+  // COPILOT — MCP & Tool Configuration
+  // ══════════════════════════════════════════════════════════════════
+
+  // MCP Discovery from other tools — DISABLED for stability
+  // Discovery loads extra tools from Claude Desktop/Cursor/Windsurf
+  // which inflates context and causes Server Error 500.
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": false,
+    "windsurf": false,
+    "cursor-global": false,
+    "cursor-workspace": false
+  },
+
+  // MCP Server Sampling — empty to minimize overhead
+  // Per-server configs (15 servers × 7 models = 105 entries) add JSON overhead.
+  "chat.mcp.serverSampling": {},
+
+  // Request queuing — "queue" is safer than "steer"
+  "chat.requestQueuing.defaultAction": "queue",
+
+  // Auto-approve edits — reduces interruptions in agent flow
+  "chat.tools.edits.autoApprove": true,
+
+  // ══════════════════════════════════════════════════════════════════
+  // COPILOT — Instructions & Memory
+  // ══════════════════════════════════════════════════════════════════
+
+  // Custom instructions for code generation
+  "github.copilot.chat.codeGeneration.instructions": [
+    { "file": ".github/copilot-instructions.md" }
+  ],
+
+  // Custom instructions for code review
+  "github.copilot.chat.reviewSelection.instructions": [
+    { "file": ".github/copilot-instructions.md" }
+  ],
+
+  // Custom instructions for test generation
+  "github.copilot.chat.testGeneration.instructions": [
+    { "file": ".github/instructions/testing-patterns.instructions.md" }
+  ],
+
+  // Custom instructions for commit messages
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Use conventional commits: <type>(<scope>): <description>. Types: feat|fix|docs|refactor|test|chore. Scope: module name. Description: imperative mood, lowercase."
+    }
+  ],
+
+  // Copilot Memory — persistent knowledge across sessions
+  "github.copilot.chat.codesearch.enabled": true,
+
+  // ══════════════════════════════════════════════════════════════════
+  // EDITOR — General
+  // ══════════════════════════════════════════════════════════════════
+
+  "editor.fontSize": 14,
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "editor.minimap.enabled": false,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "editor.wordWrap": "on",
+  "editor.linkedEditing": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.stickyScroll.enabled": true,
+
+  // ══════════════════════════════════════════════════════════════════
+  // EDITOR — Files & Search
+  // ══════════════════════════════════════════════════════════════════
+
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.next": true,
+    "**/target": true
+  },
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.next": true,
+    "**/target": true,
+    "**/coverage": true,
+    "**/*.min.js": true,
+    "**/pnpm-lock.yaml": true,
+    "**/Pipfile.lock": true,
+    "**/Cargo.lock": true
+  },
+
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+
+  // ══════════════════════════════════════════════════════════════════
+  // LANGUAGES — TypeScript
+  // ══════════════════════════════════════════════════════════════════
+
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.suggest.autoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // ══════════════════════════════════════════════════════════════════
+  // LANGUAGES — Python
+  // ══════════════════════════════════════════════════════════════════
+
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.tabSize": 4,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+
+  // ══════════════════════════════════════════════════════════════════
+  // LANGUAGES — Rust
+  // ══════════════════════════════════════════════════════════════════
+
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.tabSize": 4
+  },
+  "rust-analyzer.check.command": "clippy",
+
+  // ══════════════════════════════════════════════════════════════════
+  // TERMINAL
+  // ══════════════════════════════════════════════════════════════════
+
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.fontSize": 13,
+
+  // ══════════════════════════════════════════════════════════════════
+  // GIT
+  // ══════════════════════════════════════════════════════════════════
+
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+
+  // ══════════════════════════════════════════════════════════════════
+  // EXTENSIONS — Error Lens
+  // ══════════════════════════════════════════════════════════════════
+
+  "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+  "errorLens.delay": 500,
+
+  // ══════════════════════════════════════════════════════════════════
+  // EXTENSIONS — Material Icon Theme
+  // ══════════════════════════════════════════════════════════════════
+
+  "workbench.iconTheme": "material-icon-theme"
+}

@@ -1,15 +1,18 @@
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { StatCard } from '../components/StatCard';
 import { MenuButton } from '../components/MenuButton';
 import { useApp } from '../contexts/AppContext';
+import { BottomTabParamList } from '../navigation/types';
 
 export function HomeScreen() {
   const { state, refreshStats } = useApp();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<BottomTabNavigationProp<BottomTabParamList, 'HomeTab'>>();
 
   useFocusEffect(
     useCallback(() => {
@@ -18,7 +21,7 @@ export function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
@@ -32,10 +35,13 @@ export function HomeScreen() {
         <Text style={styles.greeting}>Bem-vindo, {state.userName}!</Text>
 
         {/* Stats */}
-        <View style={styles.statsRow}>
+        <View style={styles.statsGrid}>
           <StatCard value={state.obrasAtivas} label="Obras Ativas" />
           <StatCard value={state.inspecoesHoje} label="Inspeções Hoje" />
           <StatCard value={state.ncAbertas} label="Não Conformidades" />
+          <StatCard value={state.fundacoesEmExecucao} label="Fundações em Execução" />
+          <StatCard value={state.ensaiosPavNC} label="Ensaios Pav. NC" />
+          <StatCard value={state.cpNaoConformes} label="CP com NC" />
         </View>
       </View>
 
@@ -45,16 +51,17 @@ export function HomeScreen() {
         contentContainerStyle={styles.menuContent}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={styles.sectionTitle}>Acesso Rápido</Text>
         <View style={styles.menuGrid}>
           <MenuButton
             icon="office-building"
             label="Obras"
-            onPress={() => navigation.navigate('ObrasTab')}
+            onPress={() => navigation.navigate('ObrasTab', { screen: 'ObrasList' })}
           />
           <MenuButton
             icon="clipboard-check"
             label="Nova Inspeção"
-            onPress={() => navigation.navigate('InspectionTab')}
+            onPress={() => navigation.navigate('InspectionTab', { screen: 'InspectionType' })}
             color={COLORS.accent}
           />
           <MenuButton
@@ -65,7 +72,7 @@ export function HomeScreen() {
           <MenuButton
             icon="test-tube"
             label="Ensaios"
-            onPress={() => navigation.navigate('EnsaiosTab')}
+            onPress={() => navigation.navigate('EnsaiosTab', { screen: 'EnsaioList' })}
           />
           <MenuButton
             icon="book-open-variant"
@@ -78,8 +85,37 @@ export function HomeScreen() {
             onPress={() => navigation.navigate('MoreTab', { screen: 'Reports' })}
           />
         </View>
+
+        <Text style={styles.sectionTitle}>Módulos Especializados</Text>
+        <View style={styles.menuGrid}>
+          <MenuButton
+            icon="home-foundation"
+            label="Fundações"
+            onPress={() => navigation.navigate('InspectionTab', { screen: 'FundacaoList' })}
+          />
+          <MenuButton
+            icon="pillar"
+            label="Concreto"
+            onPress={() => navigation.navigate('InspectionTab', { screen: 'ConcretoList' })}
+          />
+          <MenuButton
+            icon="wall"
+            label="Vedação"
+            onPress={() => navigation.navigate('InspectionTab', { screen: 'VedacaoList' })}
+          />
+          <MenuButton
+            icon="road"
+            label="Pavimentação"
+            onPress={() => navigation.navigate('InspectionTab', { screen: 'PavimentacaoList' })}
+          />
+          <MenuButton
+            icon="flask"
+            label="Rompimento CP"
+            onPress={() => navigation.navigate('EnsaiosTab', { screen: 'RompimentoCPForm' })}
+          />
+        </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -90,7 +126,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: COLORS.primary,
-    paddingTop: 50,
+    paddingTop: SPACING.md,
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.lg,
     borderBottomLeftRadius: BORDER_RADIUS.xl,
@@ -119,9 +155,11 @@ const styles = StyleSheet.create({
     color: COLORS.surface,
     marginBottom: SPACING.md,
   },
-  statsRow: {
+  statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    rowGap: SPACING.sm,
   },
   menuContainer: {
     flex: 1,
@@ -130,9 +168,17 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingTop: SPACING.lg,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
   menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginBottom: SPACING.md,
   },
 });

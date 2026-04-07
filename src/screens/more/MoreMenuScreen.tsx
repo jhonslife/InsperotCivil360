@@ -1,20 +1,25 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../constants/theme';
 import { Header } from '../../components/Header';
+import { MoreStackParamList } from '../../navigation/types';
 
 const menuItems = [
-  { title: 'RNC', subtitle: 'Registros de Não Conformidade', icon: '⚠️', screen: 'RNCList' },
-  { title: 'Diário de Obra', subtitle: 'Registros diários', icon: '📓', screen: 'DiaryList' },
-  { title: 'Relatórios', subtitle: 'Gerar relatórios PDF', icon: '📊', screen: 'Reports' },
-];
+  { title: 'RNC', subtitle: 'Registros de Não Conformidade', icon: 'alert-circle-outline', screen: 'RNCList' },
+  { title: 'Diário de Obra', subtitle: 'Registros diários', icon: 'book-open-page-variant-outline', screen: 'DiaryList' },
+  { title: 'Relatórios', subtitle: 'Gerar relatórios PDF', icon: 'file-chart-outline', screen: 'Reports' },
+  { title: 'Dashboard Pavimentação', subtitle: 'Indicadores por trecho e camada', icon: 'road-variant', screen: 'PavimentacaoDashboard' },
+] as const;
 
 export function MoreMenuScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>>();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Header title="Mais" />
       <ScrollView contentContainerStyle={styles.content}>
         {menuItems.map((item, index) => (
@@ -24,7 +29,9 @@ export function MoreMenuScreen() {
             activeOpacity={0.8}
             onPress={() => navigation.navigate(item.screen)}
           >
-            <Text style={styles.icon}>{item.icon}</Text>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons name={item.icon} size={28} color={COLORS.primary} />
+            </View>
             <View style={styles.cardTextContainer}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
@@ -33,7 +40,7 @@ export function MoreMenuScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -54,8 +61,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.small,
   },
-  icon: {
-    fontSize: 28,
+  iconContainer: {
+    width: 48,
+    alignItems: 'center',
     marginRight: SPACING.md,
   },
   cardTextContainer: {

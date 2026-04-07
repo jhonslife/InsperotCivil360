@@ -1,5 +1,5 @@
 import { getDatabase } from '../connection';
-import { RNC } from '../../models/RNC';
+import { RNC, RNCOrigemTipo } from '../../models/RNC';
 import { generateId } from '../../utils/generateId';
 import { nowISO } from '../../utils/formatDate';
 import { Gravidade } from '../../constants/inspectionTypes';
@@ -11,6 +11,10 @@ interface RNCInput {
   gravidade: Gravidade;
   responsavel: string;
   prazo: string;
+  origem_tipo?: string;
+  origem_id?: string;
+  causa?: string;
+  acao_corretiva?: string;
 }
 
 async function rollbackTransaction(db: Awaited<ReturnType<typeof getDatabase>>) {
@@ -19,6 +23,27 @@ async function rollbackTransaction(db: Awaited<ReturnType<typeof getDatabase>>) 
   } catch {
     // Ignore rollback errors when there is no open transaction.
   }
+}
+
+export async function findOpenRNCByOrigin(
+  obraId: string,
+  origemTipo: RNCOrigemTipo,
+  origemId: string,
+  descricao: string
+): Promise<RNC | null> {
+  const db = await getDatabase();
+  return await db.getFirstAsync<RNC>(
+    `SELECT r.*, o.nome as obra_nome
+     FROM rnc r
+     LEFT JOIN obras o ON r.obra_id = o.id
+     WHERE r.obra_id = ?
+       AND r.origem_tipo = ?
+       AND r.origem_id = ?
+       AND r.descricao = ?
+       AND r.status != 'fechada'
+     LIMIT 1`,
+    [obraId, origemTipo, origemId, descricao]
+  );
 }
 
 export async function getAllRNCs(): Promise<RNC[]> {
@@ -52,14 +77,15 @@ export async function createRNC(data: RNCInput): Promise<RNC> {
 
   try {
     const result = await db.getFirstAsync<{ next_num: number | null }>(
-      'SELECT COALESCE(MAX(numero), 0) + 1 as next_num FROM rnc'
+      'SELECT COALESCE(MAX(numero), 0) + 1 as next_num FROM rnc WHERE obra_id = ?',
+      [data.obra_id]
     );
     numero = result?.next_num ?? 1;
 
     await db.runAsync(
-      `INSERT INTO rnc (id, numero, obra_id, data, descricao, gravidade, responsavel, prazo, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'aberta', ?)`,
-      [id, numero, data.obra_id, data.data, data.descricao, data.gravidade, data.responsavel, data.prazo, now]
+      `INSERT INTO rnc (id, numero, obra_id, data, descricao, gravidade, responsavel, prazo, status, origem_tipo, origem_id, causa, acao_corretiva, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'aberta', ?, ?, ?, ?, ?)`,
+      [id, numero, data.obra_id, data.data, data.descricao, data.gravidade, data.responsavel, data.prazo, data.origem_tipo ?? '', data.origem_id ?? '', data.causa ?? '', data.acao_corretiva ?? '', now]
     );
 
     await db.execAsync('COMMIT;');
@@ -72,6 +98,10 @@ export async function createRNC(data: RNCInput): Promise<RNC> {
     id,
     numero,
     ...data,
+    origem_tipo: (data.origem_tipo ?? '') as RNCOrigemTipo,
+    origem_id: data.origem_id ?? '',
+    causa: data.causa ?? '',
+    acao_corretiva: data.acao_corretiva ?? '',
     status: 'aberta',
     created_at: now,
   };
@@ -89,7 +119,7 @@ export async function updateRNC(
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE rnc
-     SET obra_id = ?, data = ?, descricao = ?, gravidade = ?, responsavel = ?, prazo = ?, status = ?
+     SET obra_id = ?, data = ?, descricao = ?, gravidade = ?, responsavel = ?, prazo = ?, status = ?, origem_tipo = ?, origem_id = ?, causa = ?, acao_corretiva = ?
      WHERE id = ?`,
     [
       data.obra_id,
@@ -99,6 +129,10 @@ export async function updateRNC(
       data.responsavel,
       data.prazo,
       data.status,
+      data.origem_tipo ?? '',
+      data.origem_id ?? '',
+      data.causa ?? '',
+      data.acao_corretiva ?? '',
       id,
     ]
   );

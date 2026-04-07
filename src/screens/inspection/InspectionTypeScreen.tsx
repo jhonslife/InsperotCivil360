@@ -1,53 +1,71 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, SHADOWS, BORDER_RADIUS, FONTS } from '../../constants/theme';
 import { Header } from '../../components/Header';
 import { SelectField } from '../../components/SelectField';
-import { InspectionType, INSPECTION_TYPE_LABELS } from '../../constants/inspectionTypes';
+import { InspectionType, INSPECTION_TYPE_LABELS, INSPECTION_TYPE_ICONS } from '../../constants/inspectionTypes';
 import { Obra } from '../../models/Obra';
 import { getActiveObras } from '../../database/repositories/obraRepository';
+import { BottomTabParamList, InspectionStackParamList } from '../../navigation/types';
 
-const TYPE_ICONS: Record<InspectionType, string> = {
-  fundacao: 'home-foundation',
-  estrutura: 'pillar',
-  oae: 'bridge',
-  pavimentacao: 'road',
-};
+type InspectionTypeNavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<InspectionStackParamList, 'InspectionType'>,
+  BottomTabNavigationProp<BottomTabParamList>
+>;
 
 export function InspectionTypeScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<InspectionTypeNavigationProp>();
   const [selectedObra, setSelectedObra] = useState('');
   const [obras, setObras] = useState<Obra[]>([]);
+
+  const loadObras = useCallback(async () => {
+    const data = await getActiveObras();
+    setObras(data);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadObras();
-    }, [])
+    }, [loadObras])
   );
-
-  const loadObras = async () => {
-    const data = await getActiveObras();
-    setObras(data);
-  };
 
   const obraOptions = obras.map((o) => ({ value: o.id, label: o.nome }));
 
-  const types: InspectionType[] = ['fundacao', 'estrutura', 'oae', 'pavimentacao'];
+  const types: InspectionType[] = ['fundacao_rasa', 'fundacao_profunda', 'bloco_coroamento', 'estrutura', 'oae', 'pavimentacao', 'vedacao'];
 
   const handleSelect = (tipo: InspectionType) => {
     if (!selectedObra) {
       return;
     }
-    navigation.navigate('InspectionForm', {
-      tipo,
-      obraId: selectedObra,
-    });
+
+    switch (tipo) {
+      case 'fundacao_profunda':
+        navigation.navigate('FundacaoForm', { obraId: selectedObra });
+        return;
+      case 'estrutura':
+        navigation.navigate('ConcretoList', { obraId: selectedObra });
+        return;
+      case 'pavimentacao':
+        navigation.navigate('PavimentacaoForm', { obraId: selectedObra });
+        return;
+      case 'vedacao':
+        navigation.navigate('VedacaoForm', { obraId: selectedObra });
+        return;
+      default:
+        navigation.navigate('InspectionForm', {
+          tipo,
+          obraId: selectedObra,
+        });
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Header
         title="Nova Inspeção"
         showBack
@@ -89,7 +107,7 @@ export function InspectionTypeScreen() {
               >
                 <View style={styles.typeIcon}>
                   <MaterialCommunityIcons
-                    name={TYPE_ICONS[tipo] as any}
+                    name={INSPECTION_TYPE_ICONS[tipo] as any}
                     size={28}
                     color={COLORS.surface}
                   />
@@ -101,7 +119,7 @@ export function InspectionTypeScreen() {
           </>
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

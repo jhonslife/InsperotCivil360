@@ -10,6 +10,18 @@ import { ObraFormScreen } from '../screens/obras/ObraFormScreen';
 import { InspectionListScreen } from '../screens/inspection/InspectionListScreen';
 import { InspectionTypeScreen } from '../screens/inspection/InspectionTypeScreen';
 import { InspectionFormScreen } from '../screens/inspection/InspectionFormScreen';
+import { FundacaoListScreen } from '../screens/fundacoes/FundacaoListScreen';
+import { FundacaoFormScreen } from '../screens/fundacoes/FundacaoFormScreen';
+import { ConcretoListScreen } from '../screens/concreto/ConcretoListScreen';
+import { ConcretoFormScreen } from '../screens/concreto/ConcretoFormScreen';
+import { ArmaduraFormScreen } from '../screens/concreto/ArmaduraFormScreen';
+import { FormaFormScreen } from '../screens/concreto/FormaFormScreen';
+import { RompimentoCPFormScreen } from '../screens/concreto/RompimentoCPFormScreen';
+import { VedacaoListScreen } from '../screens/vedacao/VedacaoListScreen';
+import { VedacaoFormScreen } from '../screens/vedacao/VedacaoFormScreen';
+import { PavimentacaoListScreen } from '../screens/pavimentacao/PavimentacaoListScreen';
+import { PavimentacaoFormScreen } from '../screens/pavimentacao/PavimentacaoFormScreen';
+import { PavEnsaioFormScreen } from '../screens/pavimentacao/PavEnsaioFormScreen';
 import { EnsaioListScreen } from '../screens/ensaios/EnsaioListScreen';
 import { EnsaioFormScreen } from '../screens/ensaios/EnsaioFormScreen';
 import { RNCListScreen } from '../screens/rnc/RNCListScreen';
@@ -18,6 +30,7 @@ import { DiaryListScreen } from '../screens/diary/DiaryListScreen';
 import { DiaryFormScreen } from '../screens/diary/DiaryFormScreen';
 import { ReportsScreen } from '../screens/reports/ReportsScreen';
 import { MoreMenuScreen } from '../screens/more/MoreMenuScreen';
+import { PavimentacaoDashboardScreen } from '../screens/pavimentacao/PavimentacaoDashboardScreen';
 
 import type {
   BottomTabParamList,
@@ -40,7 +53,7 @@ function ObrasNavigator() {
   );
 }
 
-// --- Inspection Stack ---
+// --- Inspection Stack (all inspection modules) ---
 const InspectionStack = createNativeStackNavigator<InspectionStackParamList>();
 function InspectionNavigator() {
   return (
@@ -48,6 +61,18 @@ function InspectionNavigator() {
       <InspectionStack.Screen name="InspectionList" component={InspectionListScreen} />
       <InspectionStack.Screen name="InspectionType" component={InspectionTypeScreen} />
       <InspectionStack.Screen name="InspectionForm" component={InspectionFormScreen} />
+      <InspectionStack.Screen name="FundacaoList" component={FundacaoListScreen} />
+      <InspectionStack.Screen name="FundacaoForm" component={FundacaoFormScreen} />
+      <InspectionStack.Screen name="ConcretoList" component={ConcretoListScreen} />
+      <InspectionStack.Screen name="ConcretoForm" component={ConcretoFormScreen} />
+      <InspectionStack.Screen name="ArmaduraForm" component={ArmaduraFormScreen} />
+      <InspectionStack.Screen name="FormaForm" component={FormaFormScreen} />
+      <InspectionStack.Screen name="RompimentoCPForm" component={RompimentoCPFormScreen} />
+      <InspectionStack.Screen name="VedacaoList" component={VedacaoListScreen} />
+      <InspectionStack.Screen name="VedacaoForm" component={VedacaoFormScreen} />
+      <InspectionStack.Screen name="PavimentacaoList" component={PavimentacaoListScreen} />
+      <InspectionStack.Screen name="PavimentacaoForm" component={PavimentacaoFormScreen} />
+      <InspectionStack.Screen name="PavEnsaioForm" component={PavEnsaioFormScreen} />
     </InspectionStack.Navigator>
   );
 }
@@ -59,6 +84,7 @@ function EnsaiosNavigator() {
     <EnsaiosStack.Navigator screenOptions={{ headerShown: false }}>
       <EnsaiosStack.Screen name="EnsaioList" component={EnsaioListScreen} />
       <EnsaiosStack.Screen name="EnsaioForm" component={EnsaioFormScreen} />
+      <EnsaiosStack.Screen name="RompimentoCPForm" component={RompimentoCPFormScreen} />
     </EnsaiosStack.Navigator>
   );
 }
@@ -74,6 +100,7 @@ function MoreNavigator() {
       <MoreStack.Screen name="DiaryList" component={DiaryListScreen} />
       <MoreStack.Screen name="DiaryForm" component={DiaryFormScreen} />
       <MoreStack.Screen name="Reports" component={ReportsScreen} />
+      <MoreStack.Screen name="PavimentacaoDashboard" component={PavimentacaoDashboardScreen} />
     </MoreStack.Navigator>
   );
 }

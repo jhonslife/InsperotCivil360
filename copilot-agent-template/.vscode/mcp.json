@@ -1,0 +1,126 @@
+{
+  // ╔══════════════════════════════════════════════════════════════════╗
+  // ║  COPILOT AGENT TEMPLATE — MCP Server Configuration             ║
+  // ║  Universal servers that work with any project                  ║
+  // ╚══════════════════════════════════════════════════════════════════╝
+  //
+  // HOW TO CUSTOMIZE:
+  // 1. Replace {{WORKSPACE_PATH}} with your actual workspace path
+  // 2. Add project-specific servers (postgres, redis, etc.) as needed
+  // 3. Set "disabled": true on servers you don't need yet
+  //
+  // STABILITY NOTES:
+  // - Keep active servers ≤ 10 to avoid context overflow
+  // - Each server adds ~10-20 tool definitions to every request
+  // - Disabled servers contribute ZERO overhead
+
+  "servers": {
+    // ── GitHub ──────────────────────────────────────────────────────
+    // GitHub integration (PRs, issues, search, repos)
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer {{GITHUB_TOKEN}}"
+      }
+    },
+
+    // ── Context7 ────────────────────────────────────────────────────
+    // Library documentation lookup
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+
+    // ── Fetch ───────────────────────────────────────────────────────
+    // Web fetching (URLs, APIs, documentation)
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-fetch"]
+    },
+
+    // ── Filesystem ──────────────────────────────────────────────────
+    // File system access (read, write, search)
+    // Set {{WORKSPACE_PATH}} to your project root, e.g., "/path/to/project"
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic-ai/mcp-filesystem",
+        "{{WORKSPACE_PATH}}"
+      ]
+    },
+
+    // ── Memory ──────────────────────────────────────────────────────
+    // Knowledge graph for persistent memory
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-memory"]
+    },
+
+    // ── Sequential Thinking ─────────────────────────────────────────
+    // Complex reasoning and problem solving
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-sequential-thinking"]
+    },
+
+    // ── Playwright ──────────────────────────────────────────────────
+    // Browser automation and E2E testing
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-playwright"]
+    },
+
+    // ── Git ─────────────────────────────────────────────────────────
+    // Git operations (diff, log, stash, etc.)
+    // Set {{WORKSPACE_PATH}} to your project root, e.g., "/path/to/project"
+    "git": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic-ai/mcp-git",
+        "{{WORKSPACE_PATH}}"
+      ]
+    },
+
+    // ══════════════════════════════════════════════════════════════════
+    // OPTIONAL SERVERS — Uncomment as needed
+    // ══════════════════════════════════════════════════════════════════
+
+    // ── PostgreSQL ──────────────────────────────────────────────────
+    // "postgres": {
+    //   "type": "stdio",
+    //   "command": "npx",
+    //   "args": ["-y", "@anthropic-ai/mcp-postgres", "postgresql://user:password@localhost:5432/dbname"]
+    // },
+
+    // ── Redis ───────────────────────────────────────────────────────
+    // "redis": {
+    //   "type": "stdio",
+    //   "command": "npx",
+    //   "args": ["-y", "@anthropic-ai/mcp-redis", "--url", "redis://localhost:6379"]
+    // },
+
+    // ── Prisma ──────────────────────────────────────────────────────
+    // "prisma": {
+    //   "type": "stdio",
+    //   "command": "npx",
+    //   "args": ["-y", "prisma-mcp-server"]
+    // },
+
+    // ── Ollama ──────────────────────────────────────────────────────
+    // "ollama": {
+    //   "type": "stdio",
+    //   "command": "npx",
+    //   "args": ["-y", "mcp-ollama"]
+    // }
+  }
+}

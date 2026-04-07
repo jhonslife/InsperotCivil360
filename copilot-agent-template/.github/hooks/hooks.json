@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/github/copilot-agent-hooks/main/schema.json",
+  "hooks": {
+    "copilot-pre-tool-use": [],
+    "copilot-post-tool-use": [],
+    "copilot-session-start": [],
+    "copilot-user-prompt-submit": [],
+    "copilot-pre-compact": [],
+    "copilot-subagent-start": [],
+    "copilot-subagent-stop": [],
+    "copilot-stop": []
+  }
+}
