@@ -20,6 +20,7 @@ interface VedacaoInput {
   observacoes: string;
   latitude?: number | null;
   longitude?: number | null;
+  assinatura_path?: string | null;
 }
 
 export async function getAllVedacaoInspecoes(): Promise<VedacaoInspecao[]> {
@@ -41,9 +42,9 @@ export async function createVedacaoInspecao(data: VedacaoInput): Promise<string>
   const id = generateId();
   const now = nowISO();
   await db.runAsync(
-    `INSERT INTO vedacao_inspecoes (id, obra_id, data, tipo_vedacao, local_descricao, material_conforme, base_nivelada, prumo_alinhamento_ok, junta_adequada, amarracao_ok, vergas_contravergas_ok, fixacao_adequada, ausencia_trincas, limpeza_ok, observacoes, latitude, longitude, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.obra_id, data.data, data.tipo_vedacao, data.local_descricao, data.material_conforme, data.base_nivelada, data.prumo_alinhamento_ok, data.junta_adequada, data.amarracao_ok, data.vergas_contravergas_ok, data.fixacao_adequada, data.ausencia_trincas, data.limpeza_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, now]
+    `INSERT INTO vedacao_inspecoes (id, obra_id, data, tipo_vedacao, local_descricao, material_conforme, base_nivelada, prumo_alinhamento_ok, junta_adequada, amarracao_ok, vergas_contravergas_ok, fixacao_adequada, ausencia_trincas, limpeza_ok, observacoes, latitude, longitude, assinatura_path, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.obra_id, data.data, data.tipo_vedacao, data.local_descricao, data.material_conforme, data.base_nivelada, data.prumo_alinhamento_ok, data.junta_adequada, data.amarracao_ok, data.vergas_contravergas_ok, data.fixacao_adequada, data.ausencia_trincas, data.limpeza_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, data.assinatura_path ?? null, now]
   );
   return id;
 }
@@ -51,8 +52,11 @@ export async function createVedacaoInspecao(data: VedacaoInput): Promise<string>
 export async function updateVedacaoInspecao(id: string, data: VedacaoInput): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE vedacao_inspecoes SET obra_id = ?, data = ?, tipo_vedacao = ?, local_descricao = ?, material_conforme = ?, base_nivelada = ?, prumo_alinhamento_ok = ?, junta_adequada = ?, amarracao_ok = ?, vergas_contravergas_ok = ?, fixacao_adequada = ?, ausencia_trincas = ?, limpeza_ok = ?, observacoes = ?, latitude = ?, longitude = ? WHERE id = ?`,
-    [data.obra_id, data.data, data.tipo_vedacao, data.local_descricao, data.material_conforme, data.base_nivelada, data.prumo_alinhamento_ok, data.junta_adequada, data.amarracao_ok, data.vergas_contravergas_ok, data.fixacao_adequada, data.ausencia_trincas, data.limpeza_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, id]
+    `UPDATE vedacao_inspecoes
+     SET obra_id = ?, data = ?, tipo_vedacao = ?, local_descricao = ?, material_conforme = ?, base_nivelada = ?, prumo_alinhamento_ok = ?, junta_adequada = ?, amarracao_ok = ?, vergas_contravergas_ok = ?, fixacao_adequada = ?, ausencia_trincas = ?, limpeza_ok = ?, observacoes = ?,
+         latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude), assinatura_path = COALESCE(?, assinatura_path)
+     WHERE id = ?`,
+    [data.obra_id, data.data, data.tipo_vedacao, data.local_descricao, data.material_conforme, data.base_nivelada, data.prumo_alinhamento_ok, data.junta_adequada, data.amarracao_ok, data.vergas_contravergas_ok, data.fixacao_adequada, data.ausencia_trincas, data.limpeza_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, data.assinatura_path ?? null, id]
   );
 }
 

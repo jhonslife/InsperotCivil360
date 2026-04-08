@@ -119,7 +119,8 @@ export async function updateRNC(
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE rnc
-     SET obra_id = ?, data = ?, descricao = ?, gravidade = ?, responsavel = ?, prazo = ?, status = ?, origem_tipo = ?, origem_id = ?, causa = ?, acao_corretiva = ?
+     SET obra_id = ?, data = ?, descricao = ?, gravidade = ?, responsavel = ?, prazo = ?, status = ?,
+         origem_tipo = COALESCE(?, origem_tipo), origem_id = COALESCE(?, origem_id), causa = COALESCE(?, causa), acao_corretiva = COALESCE(?, acao_corretiva)
      WHERE id = ?`,
     [
       data.obra_id,
@@ -129,10 +130,10 @@ export async function updateRNC(
       data.responsavel,
       data.prazo,
       data.status,
-      data.origem_tipo ?? '',
-      data.origem_id ?? '',
-      data.causa ?? '',
-      data.acao_corretiva ?? '',
+      data.origem_tipo ?? null,
+      data.origem_id ?? null,
+      data.causa ?? null,
+      data.acao_corretiva ?? null,
       id,
     ]
   );

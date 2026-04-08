@@ -19,6 +19,7 @@ import { generateEnsaioPDF } from '../../services/pdfService';
 import { ENSAIO_TYPE_LABELS, EnsaioTipo, ENSAIO_LIMITS } from '../../constants/inspectionTypes';
 import { todayISO } from '../../utils/formatDate';
 import { validateRequired } from '../../utils/validators';
+import { parseOptionalDecimalInput } from '../../utils/number';
 
 export function EnsaioFormScreen() {
   const navigation = useNavigation<any>();
@@ -98,28 +99,28 @@ export function EnsaioFormScreen() {
 
     if (tipo === 'concreto') {
       const limits = ENSAIO_LIMITS.concreto;
-      const s = parseFloat(slump);
-      const t = parseFloat(temperatura);
-      if (!isNaN(s) && (s < limits.slump.min || s > limits.slump.max)) {
+      const s = parseOptionalDecimalInput(slump);
+      const t = parseOptionalDecimalInput(temperatura);
+      if (s != null && (s < limits.slump.min || s > limits.slump.max)) {
         alerts.push(`Valor fora do padrão recomendado: Slump ${s}mm (${limits.slump.min}-${limits.slump.max}mm)`);
       }
-      if (!isNaN(t) && (t < limits.temperatura.min || t > limits.temperatura.max)) {
+      if (t != null && (t < limits.temperatura.min || t > limits.temperatura.max)) {
         alerts.push(`Valor fora do padrão recomendado: Temperatura ${t}°C (${limits.temperatura.min}-${limits.temperatura.max}°C)`);
       }
     } else if (tipo === 'graute') {
       const limits = ENSAIO_LIMITS.graute;
-      const f = parseFloat(fluidez);
-      if (!isNaN(f) && (f < limits.fluidez.min || f > limits.fluidez.max)) {
+      const f = parseOptionalDecimalInput(fluidez);
+      if (f != null && (f < limits.fluidez.min || f > limits.fluidez.max)) {
         alerts.push(`Valor fora do padrão recomendado: Fluidez ${f}s (${limits.fluidez.min}-${limits.fluidez.max}s)`);
       }
     } else if (tipo === 'pavimentacao') {
       const limits = ENSAIO_LIMITS.pavimentacao;
-      const c = parseFloat(compactacao);
-      const d = parseFloat(deflexao);
-      if (!isNaN(c) && (c < limits.compactacao.min || c > limits.compactacao.max)) {
+      const c = parseOptionalDecimalInput(compactacao);
+      const d = parseOptionalDecimalInput(deflexao);
+      if (c != null && (c < limits.compactacao.min || c > limits.compactacao.max)) {
         alerts.push(`Valor fora do padrão recomendado: Compactação ${c}% (mín ${limits.compactacao.min}%)`);
       }
-      if (!isNaN(d) && (d < limits.deflexao.min || d > limits.deflexao.max)) {
+      if (d != null && (d < limits.deflexao.min || d > limits.deflexao.max)) {
         alerts.push(`Valor fora do padrão recomendado: Deflexão ${d} (máx ${limits.deflexao.max} x 0.01mm)`);
       }
     }
@@ -140,6 +141,21 @@ export function EnsaioFormScreen() {
 
   const handleSave = async () => {
     if (!validate()) return;
+
+    const slumpValue = parseOptionalDecimalInput(slump);
+    const temperaturaValue = parseOptionalDecimalInput(temperatura);
+    const fluidezValue = parseOptionalDecimalInput(fluidez);
+    const resistenciaValue = parseOptionalDecimalInput(resistencia);
+    const compactacaoValue = parseOptionalDecimalInput(compactacao);
+    const deflexaoValue = parseOptionalDecimalInput(deflexao);
+
+    if (slump.trim() && slumpValue == null) { Alert.alert('Erro', 'Informe um valor numérico válido para slump.'); return; }
+    if (temperatura.trim() && temperaturaValue == null) { Alert.alert('Erro', 'Informe um valor numérico válido para temperatura.'); return; }
+    if (fluidez.trim() && fluidezValue == null) { Alert.alert('Erro', 'Informe um valor numérico válido para fluidez.'); return; }
+    if (resistencia.trim() && resistenciaValue == null) { Alert.alert('Erro', 'Informe um valor numérico válido para resistência.'); return; }
+    if (compactacao.trim() && compactacaoValue == null) { Alert.alert('Erro', 'Informe um valor numérico válido para compactação.'); return; }
+    if (deflexao.trim() && deflexaoValue == null) { Alert.alert('Erro', 'Informe um valor numérico válido para deflexão.'); return; }
+
     const alerts = checkAlerts();
 
     try {
@@ -148,13 +164,13 @@ export function EnsaioFormScreen() {
         tipo_ensaio: tipoEnsaio as EnsaioTipo,
         data,
         local,
-        slump: slump ? parseFloat(slump) : null,
-        temperatura: temperatura ? parseFloat(temperatura) : null,
+        slump: slumpValue,
+        temperatura: temperaturaValue,
         corpo_prova: corpoProva,
-        fluidez: fluidez ? parseFloat(fluidez) : null,
-        resistencia: resistencia ? parseFloat(resistencia) : null,
-        compactacao: compactacao ? parseFloat(compactacao) : null,
-        deflexao: deflexao ? parseFloat(deflexao) : null,
+        fluidez: fluidezValue,
+        resistencia: resistenciaValue,
+        compactacao: compactacaoValue,
+        deflexao: deflexaoValue,
         resultado,
         situacao: situacao as 'conforme' | 'nao_conforme',
       };

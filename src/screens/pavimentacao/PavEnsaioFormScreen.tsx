@@ -14,12 +14,10 @@ import { createPavEnsaio, getAllPavInspecoes, getPavEnsaioById, updatePavEnsaio 
 import { formatDate, todayISO } from '../../utils/formatDate';
 import { CAMADA_LABELS, PAV_ENSAIO_LABELS, PAV_ENSAIO_UNIDADES } from '../../constants/pavimentacaoTypes';
 import { verificarNCPavimentacaoEnsaio } from '../../services/ncAutomaticaService';
+import { parseOptionalDecimalInput } from '../../utils/number';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const ENSAIO_OPTIONS = Object.entries(PAV_ENSAIO_LABELS).map(([value, label]) => ({ value, label }));
-
-function parseDecimalInput(value: string): number {
-  return Number(value.replace(',', '.').trim());
-}
 
 export function PavEnsaioFormScreen() {
   const navigation = useNavigation<any>();
@@ -87,8 +85,8 @@ export function PavEnsaioFormScreen() {
     if (!inspecaoId) { Alert.alert('Erro', 'Selecione a inspeção de pavimentação vinculada ao ensaio.'); return; }
     if (!trecho.trim()) { Alert.alert('Erro', 'Informe o trecho.'); return; }
 
-    const resultadoValue = resultado ? parseDecimalInput(resultado) : null;
-    if (resultado && !Number.isFinite(resultadoValue)) {
+    const resultadoValue = parseOptionalDecimalInput(resultado);
+    if (resultado && resultadoValue == null) {
       Alert.alert('Erro', 'Informe um valor numérico válido para o resultado do ensaio.');
       return;
     }
@@ -103,32 +101,55 @@ export function PavEnsaioFormScreen() {
         resultado: resultadoValue,
         unidade, conforme, observacoes,
       };
-      if (isEditing) { await updatePavEnsaio(ensaioId!, input); }
-      else {
+
+      let warnings: string[] = [];
+
+      if (isEditing) {
+        await updatePavEnsaio(ensaioId!, input);
+      } else {
         const newId = await createPavEnsaio(input);
         if (conforme === 0) {
-          await verificarNCPavimentacaoEnsaio({
-            obra_id: obraId,
-            ensaio_id: newId,
-            responsavel: '',
-            trecho,
-            tipo_ensaio: PAV_ENSAIO_LABELS[tipoEnsaio as keyof typeof PAV_ENSAIO_LABELS],
-            resultado: resultadoValue,
-          });
+          warnings = await runPersistenceTasks([
+            {
+              label: 'NC automática',
+              run: async () => {
+                await verificarNCPavimentacaoEnsaio({
+                  obra_id: obraId,
+                  ensaio_id: newId,
+                  responsavel: '',
+                  trecho,
+                  tipo_ensaio: PAV_ENSAIO_LABELS[tipoEnsaio as keyof typeof PAV_ENSAIO_LABELS],
+                  resultado: resultadoValue,
+                });
+              },
+            },
+          ]);
         }
       }
       if (isEditing && conforme === 0) {
-        await verificarNCPavimentacaoEnsaio({
-          obra_id: obraId,
-          ensaio_id: ensaioId!,
-          responsavel: '',
-          trecho,
-          tipo_ensaio: PAV_ENSAIO_LABELS[tipoEnsaio as keyof typeof PAV_ENSAIO_LABELS],
-          resultado: resultadoValue,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCPavimentacaoEnsaio({
+                obra_id: obraId,
+                ensaio_id: ensaioId!,
+                responsavel: '',
+                trecho,
+                tipo_ensaio: PAV_ENSAIO_LABELS[tipoEnsaio as keyof typeof PAV_ENSAIO_LABELS],
+                resultado: resultadoValue,
+              });
+            },
+          },
+        ]);
       }
-      Alert.alert('Sucesso', isEditing ? 'Ensaio atualizado.' : 'Ensaio registrado.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-    } catch { Alert.alert('Erro', 'Não foi possível salvar.'); } finally { setSaving(false); }
+
+      const successMessage = isEditing ? 'Ensaio atualizado.' : 'Ensaio registrado.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (error) {
+      console.error('Erro ao salvar ensaio de pavimentação:', error);
+      Alert.alert('Erro', 'Não foi possível salvar.');
+    } finally { setSaving(false); }
   };
 
   return (

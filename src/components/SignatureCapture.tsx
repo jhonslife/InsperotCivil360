@@ -5,15 +5,15 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 
 interface SignatureCaptureProps {
   visible: boolean;
-  onSave: (signature: string) => void;
+  onSave: (signature: string) => void | Promise<void>;
   onCancel: () => void;
 }
 
 export function SignatureCapture({ visible, onSave, onCancel }: SignatureCaptureProps) {
   const signatureRef = useRef<SignatureViewRef>(null);
 
-  const handleSave = (signature: string) => {
-    onSave(signature);
+  const handleSave = async (signature: string) => {
+    await onSave(signature);
   };
 
   const handleClear = () => {

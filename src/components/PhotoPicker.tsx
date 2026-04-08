@@ -23,6 +23,20 @@ export function PhotoPicker({
   onAddPhoto,
   onDeletePhoto,
 }: PhotoPickerProps) {
+  const addPersistedPhoto = async (uri: string) => {
+    try {
+      if (onAddPhoto) {
+        await onAddPhoto(uri);
+      } else if (entityId) {
+        await addPhoto(entityType, entityId, uri);
+      }
+      onPhotosChanged();
+    } catch (error) {
+      console.error('Erro ao adicionar foto:', error);
+      Alert.alert('Erro', 'Não foi possível adicionar a foto.');
+    }
+  };
+
   const handleAddPhoto = () => {
     Alert.alert('Adicionar Foto', 'Escolha a origem da foto', [
       {
@@ -30,12 +44,7 @@ export function PhotoPicker({
         onPress: async () => {
           const uri = await takePhoto();
           if (uri) {
-            if (onAddPhoto) {
-              await onAddPhoto(uri);
-            } else if (entityId) {
-              await addPhoto(entityType, entityId, uri);
-            }
-            onPhotosChanged();
+            await addPersistedPhoto(uri);
           }
         },
       },
@@ -44,12 +53,7 @@ export function PhotoPicker({
         onPress: async () => {
           const uri = await pickPhoto();
           if (uri) {
-            if (onAddPhoto) {
-              await onAddPhoto(uri);
-            } else if (entityId) {
-              await addPhoto(entityType, entityId, uri);
-            }
-            onPhotosChanged();
+            await addPersistedPhoto(uri);
           }
         },
       },
@@ -64,13 +68,18 @@ export function PhotoPicker({
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
-          if (onDeletePhoto) {
-            await onDeletePhoto(photo);
-          } else {
-            await deleteStoredFile(photo.uri);
-            await deletePhoto(photo.id);
+          try {
+            if (onDeletePhoto) {
+              await onDeletePhoto(photo);
+            } else {
+              await deletePhoto(photo.id);
+              await deleteStoredFile(photo.uri);
+            }
+            onPhotosChanged();
+          } catch (error) {
+            console.error('Erro ao remover foto:', error);
+            Alert.alert('Erro', 'Não foi possível remover a foto.');
           }
-          onPhotosChanged();
         },
       },
     ]);

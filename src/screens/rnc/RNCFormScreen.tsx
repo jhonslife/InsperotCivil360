@@ -107,6 +107,10 @@ export function RNCFormScreen() {
           responsavel,
           prazo,
           status: status as RNC['status'],
+          origem_tipo: rnc?.origem_tipo,
+          origem_id: rnc?.origem_id,
+          causa: rnc?.causa,
+          acao_corretiva: rnc?.acao_corretiva,
         });
         await loadRNC(currentRNCId);
         Alert.alert('Sucesso', 'Alterações salvas com sucesso.');

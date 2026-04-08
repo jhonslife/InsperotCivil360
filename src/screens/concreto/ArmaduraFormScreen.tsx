@@ -17,6 +17,8 @@ import { deleteStoredFile } from '../../services/photoService';
 import { getCurrentLocation } from '../../services/locationService';
 import { todayISO } from '../../utils/formatDate';
 import { verificarNCArmadura } from '../../services/ncAutomaticaService';
+import { parseOptionalDecimalInput } from '../../utils/number';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const ELEMENTO_OPTIONS = [
   { value: 'pilar', label: 'Pilar' },
@@ -76,38 +78,80 @@ export function ArmaduraFormScreen() {
 
   const handleSave = async () => {
     if (!obraId) { Alert.alert('Erro', 'Selecione uma obra.'); return; }
+
+    const diametroValue = parseOptionalDecimalInput(diametro);
+    const espacamentoValue = parseOptionalDecimalInput(espacamento);
+
+    if (diametro.trim() && diametroValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para o diâmetro.');
+      return;
+    }
+
+    if (espacamento.trim() && espacamentoValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para o espaçamento.');
+      return;
+    }
+
     setSaving(true);
     try {
       const location = await getCurrentLocation();
       const input = {
         obra_id: obraId, data, elemento,
-        diametro: diametro ? Number(diametro) : null,
-        espacamento: espacamento ? Number(espacamento) : null,
+        diametro: diametroValue,
+        espacamento: espacamentoValue,
         cobrimento_ok: cobrimentoOk, amarracao_ok: amarracaoOk,
         conforme_projeto: conformeProjeto, observacoes,
         latitude: location.coords?.latitude ?? null, longitude: location.coords?.longitude ?? null,
       };
-      if (isEditing) { await updateArmaduraInspecao(armaduraId!, input); }
-      else {
-        const newId = await createArmaduraInspecao(input);
-        for (const photo of photos) await addPhoto('armadura', newId, photo.uri);
-        await verificarNCArmadura({
-          obra_id: obraId,
-          armadura_id: newId,
-          responsavel: '',
-          conforme_projeto: conformeProjeto === 1,
-        });
-      }
+
+      let warnings: string[] = [];
+
       if (isEditing) {
-        await verificarNCArmadura({
-          obra_id: obraId,
-          armadura_id: armaduraId!,
-          responsavel: '',
-          conforme_projeto: conformeProjeto === 1,
-        });
+        await updateArmaduraInspecao(armaduraId!, input);
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCArmadura({
+                obra_id: obraId,
+                armadura_id: armaduraId!,
+                responsavel: '',
+                conforme_projeto: conformeProjeto === 1,
+              });
+            },
+          },
+        ]);
+      } else {
+        const newId = await createArmaduraInspecao(input);
+        warnings = await runPersistenceTasks([
+          {
+            label: 'vinculação de fotos',
+            run: async () => {
+              for (const photo of photos) {
+                await addPhoto('armadura', newId, photo.uri);
+              }
+            },
+          },
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCArmadura({
+                obra_id: obraId,
+                armadura_id: newId,
+                responsavel: '',
+                conforme_projeto: conformeProjeto === 1,
+              });
+            },
+          },
+        ]);
       }
-      Alert.alert('Sucesso', isEditing ? 'Armadura atualizada.' : 'Armadura registrada.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-    } catch { Alert.alert('Erro', 'Não foi possível salvar.'); } finally { setSaving(false); }
+
+      const successMessage = isEditing ? 'Armadura atualizada.' : 'Armadura registrada.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (error) {
+      console.error('Erro ao salvar armadura:', error);
+      Alert.alert('Erro', 'Não foi possível salvar.');
+    } finally { setSaving(false); }
   };
 
   return (

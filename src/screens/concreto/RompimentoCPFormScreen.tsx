@@ -15,16 +15,14 @@ import { getAllConcretoInspecoes } from '../../database/repositories/concretoRep
 import { createRompimentoCP, getRompimentoCPById, updateRompimentoCP } from '../../database/repositories/rompimentoCPRepository';
 import { verificarNCRompimentoCP } from '../../services/ncAutomaticaService';
 import { formatDate, todayISO } from '../../utils/formatDate';
+import { parseDecimalInput } from '../../utils/number';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const IDADE_OPTIONS = [
   { value: '7', label: '7 dias' },
   { value: '14', label: '14 dias' },
   { value: '28', label: '28 dias' },
 ];
-
-function parseDecimalInput(value: string): number {
-  return Number(value.replace(',', '.').trim());
-}
 
 export function RompimentoCPFormScreen() {
   const navigation = useNavigation<any>();
@@ -126,35 +124,52 @@ export function RompimentoCPFormScreen() {
         observacoes,
       };
 
+      let warnings: string[] = [];
+
       if (isEditing) {
         await updateRompimentoCP(rompimentoId!, input);
         if (idade === '28') {
-          await verificarNCRompimentoCP({
-            obra_id: obraId,
-            rompimento_id: rompimentoId!,
-            responsavel: '',
-            idade: Number(idade),
-            resistencia: resistenciaValue,
-            fck_projeto: fckProjetoValue,
-          });
+          warnings = await runPersistenceTasks([
+            {
+              label: 'NC automática',
+              run: async () => {
+                await verificarNCRompimentoCP({
+                  obra_id: obraId,
+                  rompimento_id: rompimentoId!,
+                  responsavel: '',
+                  idade: Number(idade),
+                  resistencia: resistenciaValue,
+                  fck_projeto: fckProjetoValue,
+                });
+              },
+            },
+          ]);
         }
       } else {
         const result = await createRompimentoCP(input);
-        // NC automática se não conforme
         if (result.conforme === 0) {
-          await verificarNCRompimentoCP({
-            obra_id: obraId,
-            rompimento_id: result.id,
-            responsavel: '',
-            idade: Number(idade),
-            resistencia: resistenciaValue,
-            fck_projeto: fckProjetoValue,
-          });
+          warnings = await runPersistenceTasks([
+            {
+              label: 'NC automática',
+              run: async () => {
+                await verificarNCRompimentoCP({
+                  obra_id: obraId,
+                  rompimento_id: result.id,
+                  responsavel: '',
+                  idade: Number(idade),
+                  resistencia: resistenciaValue,
+                  fck_projeto: fckProjetoValue,
+                });
+              },
+            },
+          ]);
         }
       }
 
-      Alert.alert('Sucesso', isEditing ? 'Rompimento atualizado.' : 'Rompimento registrado.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-    } catch {
+      const successMessage = isEditing ? 'Rompimento atualizado.' : 'Rompimento registrado.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (error) {
+      console.error('Erro ao salvar rompimento de corpo de prova:', error);
       Alert.alert('Erro', 'Não foi possível salvar.');
     } finally {
       setSaving(false);

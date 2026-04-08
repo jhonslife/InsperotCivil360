@@ -87,9 +87,9 @@ export async function createFundacao(
   await db.execAsync('BEGIN IMMEDIATE TRANSACTION;');
   try {
     await db.runAsync(
-      `INSERT INTO fundacoes (id, obra_id, tipo, diametro, profundidade_projeto, profundidade_atingida, latitude, longitude, localizacao_desc, data, status, observacoes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, data.obra_id, data.tipo, data.diametro, data.profundidade_projeto, data.profundidade_atingida ?? null, data.latitude ?? null, data.longitude ?? null, data.localizacao_desc, data.data, data.status ?? 'em_execucao', data.observacoes, now]
+      `INSERT INTO fundacoes (id, obra_id, tipo, diametro, profundidade_projeto, profundidade_atingida, latitude, longitude, localizacao_desc, data, status, observacoes, assinatura_path, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, data.obra_id, data.tipo, data.diametro, data.profundidade_projeto, data.profundidade_atingida ?? null, data.latitude ?? null, data.longitude ?? null, data.localizacao_desc, data.data, data.status ?? 'em_execucao', data.observacoes, data.assinatura_path ?? null, now]
     );
 
     for (const item of checklist) {
@@ -108,11 +108,6 @@ export async function createFundacao(
         );
       }
     }
-
-    if (data.assinatura_path) {
-      await db.runAsync('UPDATE fundacoes SET assinatura_path = ? WHERE id = ?', [data.assinatura_path, id]);
-    }
-
     await db.execAsync('COMMIT;');
   } catch (error) {
     await rollbackTransaction(db);
@@ -165,7 +160,7 @@ export async function updateFundacao(id: string, data: FundacaoInput): Promise<v
   await db.runAsync(
     `UPDATE fundacoes
      SET obra_id = ?, tipo = ?, diametro = ?, profundidade_projeto = ?, profundidade_atingida = ?,
-         latitude = ?, longitude = ?, localizacao_desc = ?, data = ?, status = ?, observacoes = ?, assinatura_path = COALESCE(?, assinatura_path)
+         latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude), localizacao_desc = ?, data = ?, status = ?, observacoes = ?, assinatura_path = COALESCE(?, assinatura_path)
      WHERE id = ?`,
     [
       data.obra_id,

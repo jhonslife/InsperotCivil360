@@ -25,12 +25,14 @@ import {
   updateFundacaoSignature,
 } from '../../database/repositories/fundacaoRepository';
 import { getPhotosByEntity, addPhoto, deletePhoto } from '../../database/repositories/photoRepository';
-import { deleteStoredFile, saveSignature } from '../../services/photoService';
+import { deleteStoredFile, replaceSignatureFile } from '../../services/photoService';
 import { getCurrentLocation } from '../../services/locationService';
 import { todayISO } from '../../utils/formatDate';
 import { ChecklistItem } from '../../models/ChecklistItem';
 import { FundacaoStatus } from '../../models/Fundacao';
 import { verificarNCFundacao } from '../../services/ncAutomaticaService';
+import { parseDecimalInput, parseOptionalDecimalInput } from '../../utils/number';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const TIPO_OPTIONS = Object.entries(FUNDACAO_TIPO_LABELS).map(([value, label]) => ({ value, label }));
 const STATUS_OPTIONS = [
@@ -160,15 +162,12 @@ export function FundacaoFormScreen() {
   };
 
   const handleSignature = async (base64: string) => {
-    if (signature) {
-      await deleteStoredFile(signature);
-    }
-
-    const signaturePath = await saveSignature(base64);
+    const signaturePath = await replaceSignatureFile(
+      base64,
+      signature,
+      isEditing && fundacaoId ? async (nextPath: string) => updateFundacaoSignature(fundacaoId, nextPath) : undefined
+    );
     setSignature(signaturePath);
-    if (isEditing && fundacaoId) {
-      await updateFundacaoSignature(fundacaoId, signaturePath);
-    }
   };
 
   const updateDadoTecnico = (index: number, valor: string) => {
@@ -178,6 +177,20 @@ export function FundacaoFormScreen() {
   const handleSave = async () => {
     if (!obraId) { Alert.alert('Erro', 'Selecione uma obra.'); return; }
     if (!diametro || !profundidadeProjeto) { Alert.alert('Erro', 'Preencha diâmetro e profundidade.'); return; }
+
+    const diametroValue = parseDecimalInput(diametro);
+    const profundidadeProjetoValue = parseDecimalInput(profundidadeProjeto);
+    const profundidadeAtingidaValue = parseOptionalDecimalInput(profundidadeAtingida);
+
+    if (!Number.isFinite(diametroValue) || !Number.isFinite(profundidadeProjetoValue)) {
+      Alert.alert('Erro', 'Informe valores numéricos válidos para diâmetro e profundidade de projeto.');
+      return;
+    }
+
+    if (profundidadeAtingida.trim() && profundidadeAtingidaValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para a profundidade atingida.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -189,18 +202,20 @@ export function FundacaoFormScreen() {
 
       const dadosTecnicosPayload = dadosTecnicos.map((d) => ({
         campo: d.campo,
-        valor_numerico: d.valor !== '' && !isNaN(Number(d.valor)) ? Number(d.valor) : null,
-        valor_texto: isNaN(Number(d.valor)) ? d.valor : '',
+        valor_numerico: parseOptionalDecimalInput(d.valor),
+        valor_texto: parseOptionalDecimalInput(d.valor) == null ? d.valor.trim() : '',
         unidade: d.unidade,
       }));
+
+      let warnings: string[] = [];
 
       if (isEditing) {
         await updateFundacao(fundacaoId!, {
           obra_id: obraId,
           tipo,
-          diametro: Number(diametro),
-          profundidade_projeto: Number(profundidadeProjeto),
-          profundidade_atingida: profundidadeAtingida ? Number(profundidadeAtingida) : null,
+          diametro: diametroValue,
+          profundidade_projeto: profundidadeProjetoValue,
+          profundidade_atingida: profundidadeAtingidaValue,
           latitude: location.coords?.latitude ?? null,
           longitude: location.coords?.longitude ?? null,
           localizacao_desc: localizacao,
@@ -213,19 +228,26 @@ export function FundacaoFormScreen() {
         for (const item of checklist) {
           await updateFundacaoChecklistItem(item.id, item.conforme, item.observacao);
         }
-        await verificarNCFundacao({
-          obra_id: obraId,
-          fundacao_id: fundacaoId!,
-          responsavel: '',
-          itensNaoConformes,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCFundacao({
+                obra_id: obraId,
+                fundacao_id: fundacaoId!,
+                responsavel: '',
+                itensNaoConformes,
+              });
+            },
+          },
+        ]);
       } else {
         const newId = await createFundacao({
           obra_id: obraId,
           tipo,
-          diametro: Number(diametro),
-          profundidade_projeto: Number(profundidadeProjeto),
-          profundidade_atingida: profundidadeAtingida ? Number(profundidadeAtingida) : null,
+          diametro: diametroValue,
+          profundidade_projeto: profundidadeProjetoValue,
+          profundidade_atingida: profundidadeAtingidaValue,
           latitude: location.coords?.latitude ?? null,
           longitude: location.coords?.longitude ?? null,
           localizacao_desc: localizacao,
@@ -240,22 +262,31 @@ export function FundacaoFormScreen() {
           ordem: item.ordem,
         })), dadosTecnicosPayload);
 
-        for (const photo of photos) {
-          await addPhoto('fundacao', newId, photo.uri);
-        }
-        
-        try {
-          await verificarNCFundacao({
-            obra_id: obraId,
-            fundacao_id: newId,
-            responsavel: '',
-            itensNaoConformes,
-          });
-        } catch (ncError) {
-          console.warn('Non-critical error: Could not verify NCs after save.', ncError);
-        }
+        warnings = await runPersistenceTasks([
+          {
+            label: 'vinculação de fotos',
+            run: async () => {
+              for (const photo of photos) {
+                await addPhoto('fundacao', newId, photo.uri);
+              }
+            },
+          },
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCFundacao({
+                obra_id: obraId,
+                fundacao_id: newId,
+                responsavel: '',
+                itensNaoConformes,
+              });
+            },
+          },
+        ]);
       }
-      Alert.alert('Sucesso', isEditing ? 'Fundação atualizada.' : 'Fundação registrada.', [
+
+      const successMessage = isEditing ? 'Fundação atualizada.' : 'Fundação registrada.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
@@ -325,7 +356,19 @@ export function FundacaoFormScreen() {
             <Text style={{ color: COLORS.primary }}>{signature ? '✓ Assinatura capturada (alterar)' : 'Capturar Assinatura'}</Text>
           </TouchableOpacity>
         </FormSection>
-        <SignatureCapture visible={showSignature} onSave={(sig) => { handleSignature(sig); setShowSignature(false); }} onCancel={() => setShowSignature(false)} />
+        <SignatureCapture
+          visible={showSignature}
+          onSave={async (sig) => {
+            try {
+              await handleSignature(sig);
+              setShowSignature(false);
+            } catch (error) {
+              console.error('Erro ao salvar assinatura da fundação:', error);
+              Alert.alert('Erro', 'Não foi possível salvar a assinatura.');
+            }
+          }}
+          onCancel={() => setShowSignature(false)}
+        />
 
         <TouchableOpacity
           style={[styles.submitButton, saving && { opacity: 0.6 }]}

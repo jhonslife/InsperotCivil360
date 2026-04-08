@@ -79,6 +79,29 @@ export async function saveSignature(base64Data: string): Promise<string> {
   return destUri;
 }
 
+export async function replaceSignatureFile(
+  base64Data: string,
+  currentPath: string | null,
+  persistSignaturePath?: (nextPath: string) => Promise<void>
+): Promise<string> {
+  const nextPath = await saveSignature(base64Data);
+
+  try {
+    if (persistSignaturePath) {
+      await persistSignaturePath(nextPath);
+    }
+  } catch (error) {
+    await deleteStoredFile(nextPath);
+    throw error;
+  }
+
+  if (currentPath && currentPath !== nextPath) {
+    await deleteStoredFile(currentPath);
+  }
+
+  return nextPath;
+}
+
 export async function deleteStoredFile(uri: string): Promise<void> {
   try {
     const fileInfo = await FileSystem.getInfoAsync(uri);

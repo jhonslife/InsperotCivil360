@@ -21,6 +21,22 @@ function calcularConformidadeRompimento(idade: number, resistencia: number, fckP
   return resistencia >= fckProjeto * 0.95 ? 1 : 0;
 }
 
+async function assertConcretoBelongsToObra(obraId: string, concretoId: string): Promise<void> {
+  const db = await getDatabase();
+  const concreto = await db.getFirstAsync<{ obra_id: string }>(
+    'SELECT obra_id FROM concreto_inspecoes WHERE id = ?',
+    [concretoId]
+  );
+
+  if (!concreto) {
+    throw new Error('Concretagem vinculada não encontrada.');
+  }
+
+  if (concreto.obra_id !== obraId) {
+    throw new Error('A concretagem vinculada pertence a outra obra.');
+  }
+}
+
 export async function getAllRompimentosCP(): Promise<RompimentoCP[]> {
   const db = await getDatabase();
   return await db.getAllAsync<RompimentoCP>(
@@ -41,6 +57,10 @@ export async function createRompimentoCP(data: RompimentoCPInput): Promise<Rompi
   const now = nowISO();
   const conforme = calcularConformidadeRompimento(data.idade, data.resistencia, data.fck_projeto);
 
+  if (data.concreto_inspecao_id) {
+    await assertConcretoBelongsToObra(data.obra_id, data.concreto_inspecao_id);
+  }
+
   await db.runAsync(
     `INSERT INTO rompimento_corpos_prova (id, obra_id, concreto_inspecao_id, data, idade, resistencia, fck_projeto, conforme, observacoes, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -57,6 +77,11 @@ export async function createRompimentoCP(data: RompimentoCPInput): Promise<Rompi
 export async function updateRompimentoCP(id: string, data: RompimentoCPInput): Promise<void> {
   const db = await getDatabase();
   const conforme = calcularConformidadeRompimento(data.idade, data.resistencia, data.fck_projeto);
+
+  if (data.concreto_inspecao_id) {
+    await assertConcretoBelongsToObra(data.obra_id, data.concreto_inspecao_id);
+  }
+
   await db.runAsync(
     `UPDATE rompimento_corpos_prova SET obra_id = ?, concreto_inspecao_id = ?, data = ?, idade = ?, resistencia = ?, fck_projeto = ?, conforme = ?, observacoes = ? WHERE id = ?`,
     [data.obra_id, data.concreto_inspecao_id ?? null, data.data, data.idade, data.resistencia, data.fck_projeto, conforme, data.observacoes, id]

@@ -15,10 +15,12 @@ import { Photo, PhotoEntityType } from '../../models/Photo';
 import { getActiveObras } from '../../database/repositories/obraRepository';
 import { createConcretoInspecao, getConcretoById, updateConcretoInspecao, updateConcretoSignature } from '../../database/repositories/concretoRepository';
 import { getPhotosByEntity, addPhoto, deletePhoto } from '../../database/repositories/photoRepository';
-import { deleteStoredFile, saveSignature } from '../../services/photoService';
+import { deleteStoredFile, replaceSignatureFile } from '../../services/photoService';
 import { getCurrentLocation } from '../../services/locationService';
 import { todayISO } from '../../utils/formatDate';
 import { verificarNCConcreto } from '../../services/ncAutomaticaService';
+import { parseDecimalInput, parseOptionalDecimalInput } from '../../utils/number';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const ELEMENTO_OPTIONS = [
   { value: 'pilar', label: 'Pilar' },
@@ -98,21 +100,21 @@ export function ConcretoFormScreen() {
   };
 
   const handleSignature = async (base64: string) => {
-    if (signature) {
-      await deleteStoredFile(signature);
-    }
-
-    const signaturePath = await saveSignature(base64);
+    const signaturePath = await replaceSignatureFile(
+      base64,
+      signature,
+      isEditing && concretoId ? async (nextPath: string) => updateConcretoSignature(concretoId, nextPath) : undefined
+    );
     setSignature(signaturePath);
-    if (isEditing && concretoId) await updateConcretoSignature(concretoId, signaturePath);
   };
 
   const getAlerts = (): string[] => {
     const alerts: string[] = [];
-    const s = Number(slump);
-    const t = Number(temperatura);
-    if (slump && (s < 80 || s > 120)) alerts.push(`Slump ${s}mm fora da faixa 80-120mm`);
-    if (temperatura && t > 35) alerts.push(`Temperatura ${t}°C > 35°C`);
+    const slumpValue = parseOptionalDecimalInput(slump);
+    const temperaturaValue = parseOptionalDecimalInput(temperatura);
+
+    if (slumpValue != null && (slumpValue < 80 || slumpValue > 120)) alerts.push(`Slump ${slumpValue}mm fora da faixa 80-120mm`);
+    if (temperaturaValue != null && temperaturaValue > 35) alerts.push(`Temperatura ${temperaturaValue}°C > 35°C`);
     return alerts;
   };
 
@@ -120,46 +122,86 @@ export function ConcretoFormScreen() {
     if (!obraId) { Alert.alert('Erro', 'Selecione uma obra.'); return; }
     if (!fckProjeto) { Alert.alert('Erro', 'Informe o fck de projeto.'); return; }
 
+    const fckProjetoValue = parseDecimalInput(fckProjeto);
+    const slumpValue = parseOptionalDecimalInput(slump);
+    const temperaturaValue = parseOptionalDecimalInput(temperatura);
+
+    if (!Number.isFinite(fckProjetoValue)) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para o fck de projeto.');
+      return;
+    }
+
+    if (slump.trim() && slumpValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para o slump.');
+      return;
+    }
+
+    if (temperatura.trim() && temperaturaValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para a temperatura.');
+      return;
+    }
+
     setSaving(true);
     try {
       const location = await getCurrentLocation();
       const input = {
         obra_id: obraId, data, elemento: elemento as any,
-        fck_projeto: Number(fckProjeto),
-        slump: slump ? Number(slump) : null,
-        temperatura_concreto: temperatura ? Number(temperatura) : null,
+        fck_projeto: fckProjetoValue,
+        slump: slumpValue,
+        temperatura_concreto: temperaturaValue,
         adensamento_ok: adensamentoOk, cura_ok: curaOk,
         observacoes,
         latitude: location.coords?.latitude ?? null,
         longitude: location.coords?.longitude ?? null,
+        assinatura_path: signature,
       };
+
+      let warnings: string[] = [];
 
       if (isEditing) {
         await updateConcretoInspecao(concretoId!, input);
-        if (signature) {
-          await updateConcretoSignature(concretoId!, signature);
-        }
-        await verificarNCConcreto({
-          obra_id: obraId,
-          concreto_id: concretoId!,
-          responsavel: '',
-          slump: input.slump,
-          temperatura: input.temperatura_concreto,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCConcreto({
+                obra_id: obraId,
+                concreto_id: concretoId!,
+                responsavel: '',
+                slump: input.slump,
+                temperatura: input.temperatura_concreto,
+              });
+            },
+          },
+        ]);
       } else {
         const newId = await createConcretoInspecao(input);
-        for (const photo of photos) await addPhoto('concreto', newId, photo.uri);
-        if (signature) await updateConcretoSignature(newId, signature);
-        await verificarNCConcreto({
-          obra_id: obraId,
-          concreto_id: newId,
-          responsavel: '',
-          slump: input.slump,
-          temperatura: input.temperatura_concreto,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'vinculação de fotos',
+            run: async () => {
+              for (const photo of photos) {
+                await addPhoto('concreto', newId, photo.uri);
+              }
+            },
+          },
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCConcreto({
+                obra_id: obraId,
+                concreto_id: newId,
+                responsavel: '',
+                slump: input.slump,
+                temperatura: input.temperatura_concreto,
+              });
+            },
+          },
+        ]);
       }
 
-      Alert.alert('Sucesso', isEditing ? 'Concreto atualizado.' : 'Concreto registrado.', [
+      const successMessage = isEditing ? 'Concreto atualizado.' : 'Concreto registrado.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
@@ -212,7 +254,19 @@ export function ConcretoFormScreen() {
             <Text style={{ color: COLORS.primary }}>{signature ? '✓ Assinatura capturada (alterar)' : 'Capturar Assinatura'}</Text>
           </TouchableOpacity>
         </FormSection>
-        <SignatureCapture visible={showSignature} onSave={(sig) => { handleSignature(sig); setShowSignature(false); }} onCancel={() => setShowSignature(false)} />
+        <SignatureCapture
+          visible={showSignature}
+          onSave={async (sig) => {
+            try {
+              await handleSignature(sig);
+              setShowSignature(false);
+            } catch (error) {
+              console.error('Erro ao salvar assinatura da concretagem:', error);
+              Alert.alert('Erro', 'Não foi possível salvar a assinatura.');
+            }
+          }}
+          onCancel={() => setShowSignature(false)}
+        />
 
         <TouchableOpacity style={[styles.submitButton, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
           <Text style={styles.submitButtonText}>{saving ? 'Salvando...' : isEditing ? 'Atualizar' : 'Registrar'}</Text>

@@ -87,9 +87,9 @@ export async function createPavInspecao(
   await db.execAsync('BEGIN IMMEDIATE TRANSACTION;');
   try {
     await db.runAsync(
-      `INSERT INTO pavimentacao_inspecoes (id, obra_id, data, trecho, camada, espessura, compactacao_ok, umidade_ok, temperatura, latitude, longitude, km_inicio, km_fim, observacoes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, data.obra_id, data.data, data.trecho, data.camada, data.espessura ?? null, data.compactacao_ok, data.umidade_ok, data.temperatura ?? null, data.latitude ?? null, data.longitude ?? null, data.km_inicio, data.km_fim, data.observacoes, now]
+      `INSERT INTO pavimentacao_inspecoes (id, obra_id, data, trecho, camada, espessura, compactacao_ok, umidade_ok, temperatura, latitude, longitude, km_inicio, km_fim, observacoes, assinatura_path, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, data.obra_id, data.data, data.trecho, data.camada, data.espessura ?? null, data.compactacao_ok, data.umidade_ok, data.temperatura ?? null, data.latitude ?? null, data.longitude ?? null, data.km_inicio, data.km_fim, data.observacoes, data.assinatura_path ?? null, now]
     );
 
     for (const item of checklist) {
@@ -98,11 +98,6 @@ export async function createPavInspecao(
         [generateId(), id, item.descricao, item.conforme, item.observacao, item.ordem]
       );
     }
-
-    if (data.assinatura_path) {
-      await db.runAsync('UPDATE pavimentacao_inspecoes SET assinatura_path = ? WHERE id = ?', [data.assinatura_path, id]);
-    }
-
     await db.execAsync('COMMIT;');
   } catch (error) {
     await rollbackTransaction(db);
@@ -134,7 +129,7 @@ export async function updatePavInspecao(id: string, data: PavInspecaoInput): Pro
   await db.runAsync(
     `UPDATE pavimentacao_inspecoes
      SET obra_id = ?, data = ?, trecho = ?, camada = ?, espessura = ?, compactacao_ok = ?,
-         umidade_ok = ?, temperatura = ?, latitude = ?, longitude = ?, km_inicio = ?, km_fim = ?,
+         umidade_ok = ?, temperatura = ?, latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude), km_inicio = ?, km_fim = ?,
          observacoes = ?, assinatura_path = COALESCE(?, assinatura_path)
      WHERE id = ?`,
     [
@@ -155,6 +150,22 @@ export async function updatePavInspecao(id: string, data: PavInspecaoInput): Pro
       id,
     ]
   );
+}
+
+async function assertPavInspecaoBelongsToObra(obraId: string, inspecaoId: string): Promise<void> {
+  const db = await getDatabase();
+  const inspection = await db.getFirstAsync<{ obra_id: string }>(
+    'SELECT obra_id FROM pavimentacao_inspecoes WHERE id = ?',
+    [inspecaoId]
+  );
+
+  if (!inspection) {
+    throw new Error('Inspeção de pavimentação vinculada não encontrada.');
+  }
+
+  if (inspection.obra_id !== obraId) {
+    throw new Error('A inspeção de pavimentação vinculada pertence a outra obra.');
+  }
 }
 
 // ─── Ensaios de Pavimentação ───
@@ -189,6 +200,11 @@ export async function createPavEnsaio(data: PavEnsaioInput): Promise<string> {
   const db = await getDatabase();
   const id = generateId();
   const now = nowISO();
+
+  if (data.pavimentacao_inspecao_id) {
+    await assertPavInspecaoBelongsToObra(data.obra_id, data.pavimentacao_inspecao_id);
+  }
+
   await db.runAsync(
     `INSERT INTO pavimentacao_ensaios (id, obra_id, pavimentacao_inspecao_id, data, trecho, tipo_ensaio, resultado, unidade, conforme, observacoes, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -199,6 +215,11 @@ export async function createPavEnsaio(data: PavEnsaioInput): Promise<string> {
 
 export async function updatePavEnsaio(id: string, data: PavEnsaioInput): Promise<void> {
   const db = await getDatabase();
+
+  if (data.pavimentacao_inspecao_id) {
+    await assertPavInspecaoBelongsToObra(data.obra_id, data.pavimentacao_inspecao_id);
+  }
+
   await db.runAsync(
     `UPDATE pavimentacao_ensaios SET obra_id = ?, pavimentacao_inspecao_id = ?, data = ?, trecho = ?, tipo_ensaio = ?, resultado = ?, unidade = ?, conforme = ?, observacoes = ? WHERE id = ?`,
     [data.obra_id, data.pavimentacao_inspecao_id ?? null, data.data, data.trecho, data.tipo_ensaio, data.resultado ?? null, data.unidade, data.conforme, data.observacoes, id]

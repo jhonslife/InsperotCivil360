@@ -46,7 +46,10 @@ export async function createFormaInspecao(data: FormaInput): Promise<string> {
 export async function updateFormaInspecao(id: string, data: FormaInput): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE formas_inspecoes SET obra_id = ?, data = ?, elemento = ?, alinhamento_ok = ?, nivelamento_ok = ?, estanqueidade_ok = ?, limpeza_ok = ?, desmoldante_aplicado = ?, observacoes = ?, latitude = ?, longitude = ? WHERE id = ?`,
+    `UPDATE formas_inspecoes
+     SET obra_id = ?, data = ?, elemento = ?, alinhamento_ok = ?, nivelamento_ok = ?, estanqueidade_ok = ?, limpeza_ok = ?, desmoldante_aplicado = ?, observacoes = ?,
+         latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude)
+     WHERE id = ?`,
     [data.obra_id, data.data, data.elemento, data.alinhamento_ok, data.nivelamento_ok, data.estanqueidade_ok, data.limpeza_ok, data.desmoldante_aplicado, data.observacoes, data.latitude ?? null, data.longitude ?? null, id]
   );
 }

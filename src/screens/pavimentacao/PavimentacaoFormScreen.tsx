@@ -24,11 +24,13 @@ import {
   updatePavSignature,
 } from '../../database/repositories/pavimentacaoRepository';
 import { getPhotosByEntity, addPhoto, deletePhoto } from '../../database/repositories/photoRepository';
-import { deleteStoredFile, saveSignature } from '../../services/photoService';
+import { deleteStoredFile, replaceSignatureFile } from '../../services/photoService';
 import { getCurrentLocation } from '../../services/locationService';
 import { todayISO } from '../../utils/formatDate';
 import { CAMADA_LABELS, CamadaPavimentacao, PAVIMENTACAO_CHECKLISTS } from '../../constants/pavimentacaoTypes';
 import { verificarNCPavimentacao } from '../../services/ncAutomaticaService';
+import { parseOptionalDecimalInput } from '../../utils/number';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const CAMADA_OPTIONS = Object.entries(CAMADA_LABELS).map(([value, label]) => ({ value, label }));
 const KM_PATTERN = /^KM\s\d{2}\+\d{3}$/i;
@@ -148,20 +150,19 @@ export function PavimentacaoFormScreen() {
   };
 
   const handleSignature = async (base64: string) => {
-    if (signature) {
-      await deleteStoredFile(signature);
-    }
-
-    const signaturePath = await saveSignature(base64);
+    const signaturePath = await replaceSignatureFile(
+      base64,
+      signature,
+      isEditing && inspecaoId ? async (nextPath: string) => updatePavSignature(inspecaoId, nextPath) : undefined
+    );
     setSignature(signaturePath);
-    if (isEditing && inspecaoId) await updatePavSignature(inspecaoId, signaturePath);
   };
 
   const getAlerts = (): string[] => {
     const alerts: string[] = [];
-    const t = Number(temperatura);
-    if (temperatura && camada === 'cbuq' && (t < 107 || t > 177)) {
-      alerts.push(`Temperatura CBUQ ${t}°C fora da faixa 107-177°C`);
+    const temperaturaValue = parseOptionalDecimalInput(temperatura);
+    if (temperaturaValue != null && camada === 'cbuq' && (temperaturaValue < 107 || temperaturaValue > 177)) {
+      alerts.push(`Temperatura CBUQ ${temperaturaValue}°C fora da faixa 107-177°C`);
     }
     return alerts;
   };
@@ -172,6 +173,19 @@ export function PavimentacaoFormScreen() {
     if (kmInicio && !KM_PATTERN.test(kmInicio)) { Alert.alert('Erro', 'KM Início deve seguir o formato KM 00+000.'); return; }
     if (kmFim && !KM_PATTERN.test(kmFim)) { Alert.alert('Erro', 'KM Fim deve seguir o formato KM 00+000.'); return; }
 
+    const espessuraValue = parseOptionalDecimalInput(espessura);
+    const temperaturaValue = parseOptionalDecimalInput(temperatura);
+
+    if (espessura.trim() && espessuraValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para a espessura.');
+      return;
+    }
+
+    if (temperatura.trim() && temperaturaValue == null) {
+      Alert.alert('Erro', 'Informe um valor numérico válido para a temperatura.');
+      return;
+    }
+
     setSaving(true);
     try {
       const location = await getCurrentLocation();
@@ -180,10 +194,10 @@ export function PavimentacaoFormScreen() {
         data,
         trecho,
         camada,
-        espessura: espessura ? Number(espessura) : null,
+        espessura: espessuraValue,
         compactacao_ok: compactacaoOk,
         umidade_ok: umidadeOk,
-        temperatura: temperatura ? Number(temperatura) : null,
+        temperatura: temperaturaValue,
         latitude: location.coords?.latitude ?? null,
         longitude: location.coords?.longitude ?? null,
         km_inicio: kmInicio.toUpperCase(),
@@ -192,19 +206,28 @@ export function PavimentacaoFormScreen() {
         assinatura_path: signature,
       };
 
+      let warnings: string[] = [];
+
       if (isEditing) {
         await updatePavInspecao(inspecaoId!, input);
         for (const item of checklist) {
           await updatePavChecklistItem(item.id, item.conforme, item.observacao);
         }
-        await verificarNCPavimentacao({
-          obra_id: obraId,
-          inspecao_id: inspecaoId!,
-          responsavel: '',
-          trecho,
-          compactacao_ok: compactacaoOk === 1,
-          temperatura: temperatura ? Number(temperatura) : null,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCPavimentacao({
+                obra_id: obraId,
+                inspecao_id: inspecaoId!,
+                responsavel: '',
+                trecho,
+                compactacao_ok: compactacaoOk === 1,
+                temperatura: temperaturaValue,
+              });
+            },
+          },
+        ]);
       } else {
         const newId = await createPavInspecao(
           input,
@@ -216,23 +239,37 @@ export function PavimentacaoFormScreen() {
           }))
         );
 
-        for (const photo of photos) await addPhoto('pavimentacao', newId, photo.uri);
-
-        // NC automática
-        await verificarNCPavimentacao({
-          obra_id: obraId,
-          inspecao_id: newId,
-          responsavel: '',
-          trecho,
-          compactacao_ok: compactacaoOk === 1,
-          temperatura: temperatura ? Number(temperatura) : null,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'vinculação de fotos',
+            run: async () => {
+              for (const photo of photos) {
+                await addPhoto('pavimentacao', newId, photo.uri);
+              }
+            },
+          },
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCPavimentacao({
+                obra_id: obraId,
+                inspecao_id: newId,
+                responsavel: '',
+                trecho,
+                compactacao_ok: compactacaoOk === 1,
+                temperatura: temperaturaValue,
+              });
+            },
+          },
+        ]);
       }
 
-      Alert.alert('Sucesso', isEditing ? 'Pavimentação atualizada.' : 'Pavimentação registrada.', [
+      const successMessage = isEditing ? 'Pavimentação atualizada.' : 'Pavimentação registrada.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
+    } catch (error) {
+      console.error('Erro ao salvar inspeção de pavimentação:', error);
       Alert.alert('Erro', 'Não foi possível salvar.');
     } finally {
       setSaving(false);
@@ -297,7 +334,19 @@ export function PavimentacaoFormScreen() {
             <Text style={{ color: COLORS.primary }}>{signature ? '✓ Assinatura capturada (alterar)' : 'Capturar Assinatura'}</Text>
           </TouchableOpacity>
         </FormSection>
-        <SignatureCapture visible={showSignature} onSave={(sig) => { handleSignature(sig); setShowSignature(false); }} onCancel={() => setShowSignature(false)} />
+        <SignatureCapture
+          visible={showSignature}
+          onSave={async (sig) => {
+            try {
+              await handleSignature(sig);
+              setShowSignature(false);
+            } catch (error) {
+              console.error('Erro ao salvar assinatura da pavimentação:', error);
+              Alert.alert('Erro', 'Não foi possível salvar a assinatura.');
+            }
+          }}
+          onCancel={() => setShowSignature(false)}
+        />
 
         <TouchableOpacity style={[styles.submitButton, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
           <Text style={styles.submitButtonText}>{saving ? 'Salvando...' : isEditing ? 'Atualizar' : 'Registrar'}</Text>

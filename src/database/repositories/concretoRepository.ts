@@ -15,6 +15,7 @@ interface ConcretoInput {
   observacoes: string;
   latitude?: number | null;
   longitude?: number | null;
+  assinatura_path?: string | null;
 }
 
 export async function getAllConcretoInspecoes(): Promise<ConcretoInspecao[]> {
@@ -37,9 +38,9 @@ export async function createConcretoInspecao(data: ConcretoInput): Promise<strin
   const now = nowISO();
 
   await db.runAsync(
-    `INSERT INTO concreto_inspecoes (id, obra_id, data, elemento, fck_projeto, slump, temperatura_concreto, adensamento_ok, cura_ok, observacoes, latitude, longitude, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.obra_id, data.data, data.elemento, data.fck_projeto, data.slump ?? null, data.temperatura_concreto ?? null, data.adensamento_ok, data.cura_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, now]
+    `INSERT INTO concreto_inspecoes (id, obra_id, data, elemento, fck_projeto, slump, temperatura_concreto, adensamento_ok, cura_ok, observacoes, latitude, longitude, assinatura_path, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.obra_id, data.data, data.elemento, data.fck_projeto, data.slump ?? null, data.temperatura_concreto ?? null, data.adensamento_ok, data.cura_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, data.assinatura_path ?? null, now]
   );
 
   return id;
@@ -48,8 +49,11 @@ export async function createConcretoInspecao(data: ConcretoInput): Promise<strin
 export async function updateConcretoInspecao(id: string, data: ConcretoInput): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE concreto_inspecoes SET obra_id = ?, data = ?, elemento = ?, fck_projeto = ?, slump = ?, temperatura_concreto = ?, adensamento_ok = ?, cura_ok = ?, observacoes = ?, latitude = ?, longitude = ? WHERE id = ?`,
-    [data.obra_id, data.data, data.elemento, data.fck_projeto, data.slump ?? null, data.temperatura_concreto ?? null, data.adensamento_ok, data.cura_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, id]
+    `UPDATE concreto_inspecoes
+     SET obra_id = ?, data = ?, elemento = ?, fck_projeto = ?, slump = ?, temperatura_concreto = ?, adensamento_ok = ?, cura_ok = ?, observacoes = ?,
+         latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude), assinatura_path = COALESCE(?, assinatura_path)
+     WHERE id = ?`,
+    [data.obra_id, data.data, data.elemento, data.fck_projeto, data.slump ?? null, data.temperatura_concreto ?? null, data.adensamento_ok, data.cura_ok, data.observacoes, data.latitude ?? null, data.longitude ?? null, data.assinatura_path ?? null, id]
   );
 }
 

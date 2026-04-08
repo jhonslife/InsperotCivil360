@@ -17,6 +17,7 @@ import { deleteStoredFile } from '../../services/photoService';
 import { getCurrentLocation } from '../../services/locationService';
 import { todayISO } from '../../utils/formatDate';
 import { verificarNCForma } from '../../services/ncAutomaticaService';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 export function FormaFormScreen() {
   const navigation = useNavigation<any>();
@@ -78,31 +79,59 @@ export function FormaFormScreen() {
         desmoldante_aplicado: desmoldanteAplicado, observacoes,
         latitude: location.coords?.latitude ?? null, longitude: location.coords?.longitude ?? null,
       };
-      if (isEditing) { await updateFormaInspecao(formaId!, input); }
-      else {
-        const newId = await createFormaInspecao(input);
-        for (const photo of photos) await addPhoto('formas', newId, photo.uri);
-        await verificarNCForma({
-          obra_id: obraId,
-          forma_id: newId,
-          responsavel: '',
-          alinhamento_ok: alinhamentoOk === 1,
-          nivelamento_ok: nivelamentoOk === 1,
-          estanqueidade_ok: estanqueidadeOk === 1,
-        });
-      }
+
+      let warnings: string[] = [];
+
       if (isEditing) {
-        await verificarNCForma({
-          obra_id: obraId,
-          forma_id: formaId!,
-          responsavel: '',
-          alinhamento_ok: alinhamentoOk === 1,
-          nivelamento_ok: nivelamentoOk === 1,
-          estanqueidade_ok: estanqueidadeOk === 1,
-        });
+        await updateFormaInspecao(formaId!, input);
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCForma({
+                obra_id: obraId,
+                forma_id: formaId!,
+                responsavel: '',
+                alinhamento_ok: alinhamentoOk === 1,
+                nivelamento_ok: nivelamentoOk === 1,
+                estanqueidade_ok: estanqueidadeOk === 1,
+              });
+            },
+          },
+        ]);
+      } else {
+        const newId = await createFormaInspecao(input);
+        warnings = await runPersistenceTasks([
+          {
+            label: 'vinculação de fotos',
+            run: async () => {
+              for (const photo of photos) {
+                await addPhoto('formas', newId, photo.uri);
+              }
+            },
+          },
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCForma({
+                obra_id: obraId,
+                forma_id: newId,
+                responsavel: '',
+                alinhamento_ok: alinhamentoOk === 1,
+                nivelamento_ok: nivelamentoOk === 1,
+                estanqueidade_ok: estanqueidadeOk === 1,
+              });
+            },
+          },
+        ]);
       }
-      Alert.alert('Sucesso', isEditing ? 'Forma atualizada.' : 'Forma registrada.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-    } catch { Alert.alert('Erro', 'Não foi possível salvar.'); } finally { setSaving(false); }
+
+      const successMessage = isEditing ? 'Forma atualizada.' : 'Forma registrada.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (error) {
+      console.error('Erro ao salvar forma:', error);
+      Alert.alert('Erro', 'Não foi possível salvar.');
+    } finally { setSaving(false); }
   };
 
   return (

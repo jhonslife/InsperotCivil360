@@ -14,10 +14,11 @@ import { Photo, PhotoEntityType } from '../../models/Photo';
 import { getActiveObras } from '../../database/repositories/obraRepository';
 import { createVedacaoInspecao, getVedacaoById, updateVedacaoInspecao, updateVedacaoSignature } from '../../database/repositories/vedacaoRepository';
 import { getPhotosByEntity, addPhoto, deletePhoto } from '../../database/repositories/photoRepository';
-import { deleteStoredFile, saveSignature } from '../../services/photoService';
+import { deleteStoredFile, replaceSignatureFile } from '../../services/photoService';
 import { getCurrentLocation } from '../../services/locationService';
 import { todayISO } from '../../utils/formatDate';
 import { verificarNCVedacao } from '../../services/ncAutomaticaService';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 const TIPO_OPTIONS = [
   { value: 'alvenaria', label: 'Alvenaria' },
@@ -116,15 +117,12 @@ export function VedacaoFormScreen() {
   };
 
   const handleSignature = async (path: string) => {
-    if (signature) {
-      await deleteStoredFile(signature);
-    }
-
-    const signaturePath = await saveSignature(path);
+    const signaturePath = await replaceSignatureFile(
+      path,
+      signature,
+      isEditing && vedacaoId ? async (nextPath: string) => updateVedacaoSignature(vedacaoId, nextPath) : undefined
+    );
     setSignature(signaturePath);
-    if (isEditing && vedacaoId) {
-      await updateVedacaoSignature(vedacaoId, signaturePath);
-    }
   };
 
   const handleSave = async () => {
@@ -159,39 +157,59 @@ export function VedacaoFormScreen() {
         observacoes,
         latitude: location.coords?.latitude ?? null,
         longitude: location.coords?.longitude ?? null,
+        assinatura_path: signature,
       };
+
+      let warnings: string[] = [];
 
       if (isEditing) {
         await updateVedacaoInspecao(vedacaoId!, input);
-        if (signature) await updateVedacaoSignature(vedacaoId!, signature);
-        await verificarNCVedacao({
-          obra_id: obraId,
-          inspecao_id: vedacaoId!,
-          responsavel: '',
-          tipo_vedacao: tipoVedacao as 'alvenaria' | 'drywall',
-          itensNaoConformes,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCVedacao({
+                obra_id: obraId,
+                inspecao_id: vedacaoId!,
+                responsavel: '',
+                tipo_vedacao: tipoVedacao as 'alvenaria' | 'drywall',
+                itensNaoConformes,
+              });
+            },
+          },
+        ]);
       } else {
         const newId = await createVedacaoInspecao(input);
-        for (const photo of photos) {
-          await addPhoto('vedacao', newId, photo.uri);
-        }
-        if (signature) await updateVedacaoSignature(newId, signature);
-
-        // NC automática
-        await verificarNCVedacao({
-          obra_id: obraId,
-          inspecao_id: newId,
-          responsavel: '',
-          tipo_vedacao: tipoVedacao as 'alvenaria' | 'drywall',
-          itensNaoConformes,
-        });
+        warnings = await runPersistenceTasks([
+          {
+            label: 'vinculação de fotos',
+            run: async () => {
+              for (const photo of photos) {
+                await addPhoto('vedacao', newId, photo.uri);
+              }
+            },
+          },
+          {
+            label: 'NC automática',
+            run: async () => {
+              await verificarNCVedacao({
+                obra_id: obraId,
+                inspecao_id: newId,
+                responsavel: '',
+                tipo_vedacao: tipoVedacao as 'alvenaria' | 'drywall',
+                itensNaoConformes,
+              });
+            },
+          },
+        ]);
       }
 
-      Alert.alert('Sucesso', isEditing ? 'Vedação atualizada.' : 'Vedação registrada.', [
+      const successMessage = isEditing ? 'Vedação atualizada.' : 'Vedação registrada.';
+      Alert.alert(warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso', buildPersistenceAlertMessage(successMessage, warnings), [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
+    } catch (error) {
+      console.error('Erro ao salvar vedação:', error);
       Alert.alert('Erro', 'Não foi possível salvar.');
     } finally {
       setSaving(false);
@@ -245,7 +263,19 @@ export function VedacaoFormScreen() {
             <Text style={{ color: COLORS.primary }}>{signature ? '✓ Assinatura capturada (alterar)' : 'Capturar Assinatura'}</Text>
           </TouchableOpacity>
         </FormSection>
-        <SignatureCapture visible={showSignature} onSave={(sig) => { handleSignature(sig); setShowSignature(false); }} onCancel={() => setShowSignature(false)} />
+        <SignatureCapture
+          visible={showSignature}
+          onSave={async (sig) => {
+            try {
+              await handleSignature(sig);
+              setShowSignature(false);
+            } catch (error) {
+              console.error('Erro ao salvar assinatura da vedação:', error);
+              Alert.alert('Erro', 'Não foi possível salvar a assinatura.');
+            }
+          }}
+          onCancel={() => setShowSignature(false)}
+        />
 
         <TouchableOpacity
           style={[styles.submitButton, saving && { opacity: 0.6 }]}

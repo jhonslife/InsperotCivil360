@@ -46,7 +46,10 @@ export async function createArmaduraInspecao(data: ArmaduraInput): Promise<strin
 export async function updateArmaduraInspecao(id: string, data: ArmaduraInput): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE armadura_inspecoes SET obra_id = ?, data = ?, elemento = ?, diametro = ?, espacamento = ?, cobrimento_ok = ?, amarracao_ok = ?, conforme_projeto = ?, observacoes = ?, latitude = ?, longitude = ? WHERE id = ?`,
+    `UPDATE armadura_inspecoes
+     SET obra_id = ?, data = ?, elemento = ?, diametro = ?, espacamento = ?, cobrimento_ok = ?, amarracao_ok = ?, conforme_projeto = ?, observacoes = ?,
+         latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude)
+     WHERE id = ?`,
     [data.obra_id, data.data, data.elemento, data.diametro ?? null, data.espacamento ?? null, data.cobrimento_ok, data.amarracao_ok, data.conforme_projeto, data.observacoes, data.latitude ?? null, data.longitude ?? null, id]
   );
 }

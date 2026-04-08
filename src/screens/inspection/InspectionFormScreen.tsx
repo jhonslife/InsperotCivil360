@@ -23,10 +23,11 @@ import {
 import { addPhoto, getPhotosByEntity } from '../../database/repositories/photoRepository';
 import { InspectionType, INSPECTION_TYPE_LABELS, INSPECTION_CHECKLISTS } from '../../constants/inspectionTypes';
 import { getCurrentLocation } from '../../services/locationService';
-import { saveSignature, getPhotoBase64, deleteStoredFile } from '../../services/photoService';
+import { replaceSignatureFile, getPhotoBase64, deleteStoredFile } from '../../services/photoService';
 import { generateInspectionPDF } from '../../services/pdfService';
 import { todayISO } from '../../utils/formatDate';
 import { generateId } from '../../utils/generateId';
+import { buildPersistenceAlertMessage, runPersistenceTasks } from '../../utils/persistence';
 
 function createDraftChecklist(tipo: InspectionType): ChecklistItem[] {
   return INSPECTION_CHECKLISTS[tipo].map((item) => ({
@@ -178,14 +179,12 @@ export function InspectionFormScreen() {
   };
 
   const handleSignatureSave = async (signatureData: string) => {
-    const path = await saveSignature(signatureData);
+    const path = await replaceSignatureFile(
+      signatureData,
+      signaturePath,
+      currentInspectionId ? async (nextPath: string) => updateInspectionSignature(currentInspectionId, nextPath) : undefined
+    );
     setSignaturePath(path);
-
-    if (currentInspectionId) {
-      await updateInspectionSignature(currentInspectionId, path);
-    }
-
-    setShowSignature(false);
   };
 
   const determineStatus = (): InspectionStatus => {
@@ -195,13 +194,20 @@ export function InspectionFormScreen() {
     return hasNonConform ? 'nao_conforme' : 'conforme';
   };
 
-  const persistInspection = async (): Promise<{ id: string; inspection: Inspection } | null> => {
+  const persistInspection = async (): Promise<{ id: string; inspection: Inspection; warnings: string[] } | null> => {
     const status = determineStatus();
 
     if (currentInspectionId) {
       await handleSaveObservacoes();
       await updateInspectionStatus(currentInspectionId, status);
-      const persistedPhotos = await syncDraftPhotos(currentInspectionId);
+      const warnings = await runPersistenceTasks([
+        {
+          label: 'vinculação de fotos',
+          run: async () => {
+            await syncDraftPhotos(currentInspectionId);
+          },
+        },
+      ]);
       const updatedInspection = await getInspectionById(currentInspectionId);
 
       if (!updatedInspection) {
@@ -209,10 +215,7 @@ export function InspectionFormScreen() {
       }
 
       setInspection(updatedInspection);
-      if (persistedPhotos.length > 0) {
-        setPhotos(persistedPhotos);
-      }
-      return { id: currentInspectionId, inspection: updatedInspection };
+      return { id: currentInspectionId, inspection: updatedInspection, warnings };
     }
 
     if (!tipo || !obraId) {
@@ -250,35 +253,54 @@ export function InspectionFormScreen() {
 
     setCurrentInspectionId(id);
     setInspection(createdInspection);
-    await syncDraftPhotos(id);
-    return { id, inspection: createdInspection };
+    const warnings = await runPersistenceTasks([
+      {
+        label: 'vinculação de fotos',
+        run: async () => {
+          await syncDraftPhotos(id);
+        },
+      },
+    ]);
+    return { id, inspection: createdInspection, warnings };
   };
 
   const handleSave = async () => {
-    const persisted = await persistInspection();
-    if (!persisted) return;
+    try {
+      const persisted = await persistInspection();
+      if (!persisted) return;
 
-    Alert.alert('Sucesso', 'Inspeção salva com sucesso!', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+      Alert.alert(
+        persisted.warnings.length > 0 ? 'Salvo com avisos' : 'Sucesso',
+        buildPersistenceAlertMessage('Inspeção salva com sucesso!', persisted.warnings),
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('Erro ao salvar inspeção:', error);
+      Alert.alert('Erro', 'Não foi possível salvar a inspeção.');
+    }
   };
 
   const handleGenerateReport = async () => {
-    const persisted = await persistInspection();
-    if (!persisted) return;
+    try {
+      const persisted = await persistInspection();
+      if (!persisted) return;
 
-    const reportPhotos = currentInspectionId || draftPhotos.length === 0
-      ? photos.length > 0
-        ? photos
-        : await getPhotosByEntity('inspection', persisted.id)
-      : await getPhotosByEntity('inspection', persisted.id);
+      const reportPhotos = currentInspectionId || draftPhotos.length === 0
+        ? photos.length > 0
+          ? photos
+          : await getPhotosByEntity('inspection', persisted.id)
+        : await getPhotosByEntity('inspection', persisted.id);
 
-    let sigBase64: string | null = null;
-    if (signaturePath) {
-      sigBase64 = await getPhotoBase64(signaturePath);
+      let sigBase64: string | null = null;
+      if (signaturePath) {
+        sigBase64 = await getPhotoBase64(signaturePath);
+      }
+
+      await generateInspectionPDF(persisted.inspection, checklistItems, reportPhotos, sigBase64);
+    } catch (error) {
+      console.error('Erro ao gerar relatório da inspeção:', error);
+      Alert.alert('Erro', 'Não foi possível salvar a inspeção antes de gerar o relatório.');
     }
-
-    await generateInspectionPDF(persisted.inspection, checklistItems, reportPhotos, sigBase64);
   };
 
   if (loading) {
@@ -408,7 +430,15 @@ export function InspectionFormScreen() {
       {/* Signature Modal */}
       <SignatureCapture
         visible={showSignature}
-        onSave={handleSignatureSave}
+        onSave={async (signatureData) => {
+          try {
+            await handleSignatureSave(signatureData);
+            setShowSignature(false);
+          } catch (error) {
+            console.error('Erro ao salvar assinatura da inspeção:', error);
+            Alert.alert('Erro', 'Não foi possível salvar a assinatura.');
+          }
+        }}
         onCancel={() => setShowSignature(false)}
       />
 
