@@ -43,6 +43,15 @@ export function HomeScreen() {
           <StatCard value={state.ensaiosPavNC} label="Ensaios Pav. NC" />
           <StatCard value={state.cpNaoConformes} label="CP com NC" />
         </View>
+
+        {state.obrasAtivas === 0 && (
+          <View style={styles.noObraWarning}>
+            <MaterialCommunityIcons name="alert-circle" size={20} color="#FEF3C7" />
+            <Text style={styles.noObraWarningText}>
+              Nenhuma obra ativa encontrada. Crie uma obra primeiro para realizar inspeções.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Menu */}
@@ -180,5 +189,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: SPACING.md,
+  },
+  noObraWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(217, 119, 6, 0.4)',
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  noObraWarningText: {
+    color: '#FEF3C7',
+    fontSize: 12,
+    marginLeft: SPACING.xs,
+    flex: 1,
+    fontWeight: '600',
   },
 });

@@ -72,7 +72,8 @@ export async function getFundacoesByObra(obraId: string): Promise<Fundacao[]> {
 
 export async function createFundacao(
   data: FundacaoInput,
-  checklistItems?: FundacaoChecklistInput[]
+  checklistItems?: FundacaoChecklistInput[],
+  dadosTecnicos?: DadoTecnicoInput[]
 ): Promise<string> {
   const db = await getDatabase();
   const id = generateId();
@@ -96,6 +97,16 @@ export async function createFundacao(
         `INSERT INTO fundacao_checklist_items (id, fundacao_id, descricao, conforme, observacao, ordem) VALUES (?, ?, ?, ?, ?, ?)`,
         [generateId(), id, item.descricao, item.conforme, item.observacao, item.ordem]
       );
+    }
+
+
+    if (dadosTecnicos && dadosTecnicos.length > 0) {
+      for (const dado of dadosTecnicos) {
+        await db.runAsync(
+          'INSERT INTO fundacao_dados_tecnicos (id, fundacao_id, campo, valor_numerico, valor_texto, unidade, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [generateId(), id, dado.campo, dado.valor_numerico ?? null, dado.valor_texto ?? '', dado.unidade, nowISO()]
+        );
+      }
     }
 
     if (data.assinatura_path) {

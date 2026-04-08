@@ -42,28 +42,40 @@ export function SelectField({ label, value, options, onSelect, error }: SelectFi
         >
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>{label}</Text>
-            <FlatList
-              data={options}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.option, item.value === value && styles.optionSelected]}
-                  onPress={() => {
-                    onSelect(item.value);
-                    setModalVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[styles.optionText, item.value === value && styles.optionTextSelected]}
+            {options.length > 0 ? (
+              <FlatList
+                data={options}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.option, item.value === value && styles.optionSelected]}
+                    onPress={() => {
+                      onSelect(item.value);
+                      setModalVisible(false);
+                    }}
                   >
-                    {item.label}
+                    <Text
+                      style={[styles.optionText, item.value === value && styles.optionTextSelected]}
+                    >
+                      {item.label}
+                    </Text>
+                    {item.value === value && (
+                      <MaterialCommunityIcons name="check" size={20} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={48} color={COLORS.disabled} />
+                <Text style={styles.emptyText}>Nenhuma opção disponível</Text>
+                {label === 'Obra' && (
+                  <Text style={styles.emptySubtext}>
+                    Cadastre uma obra ativa primeiro para poder selecioná-la.
                   </Text>
-                  {item.value === value && (
-                    <MaterialCommunityIcons name="check" size={20} color={COLORS.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
+                )}
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -145,5 +157,23 @@ const styles = StyleSheet.create({
   optionTextSelected: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  emptyContainer: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...FONTS.bold,
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+  },
+  emptySubtext: {
+    ...FONTS.regular,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
   },
 });

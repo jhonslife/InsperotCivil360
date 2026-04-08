@@ -238,23 +238,29 @@ export function FundacaoFormScreen() {
           conforme: item.conforme,
           observacao: item.observacao,
           ordem: item.ordem,
-        })));
-        await saveDadosTecnicos(newId, dadosTecnicosPayload);
+        })), dadosTecnicosPayload);
+
         for (const photo of photos) {
           await addPhoto('fundacao', newId, photo.uri);
         }
-        await verificarNCFundacao({
-          obra_id: obraId,
-          fundacao_id: newId,
-          responsavel: '',
-          itensNaoConformes,
-        });
+        
+        try {
+          await verificarNCFundacao({
+            obra_id: obraId,
+            fundacao_id: newId,
+            responsavel: '',
+            itensNaoConformes,
+          });
+        } catch (ncError) {
+          console.warn('Non-critical error: Could not verify NCs after save.', ncError);
+        }
       }
       Alert.alert('Sucesso', isEditing ? 'Fundação atualizada.' : 'Fundação registrada.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível salvar.');
+    } catch (error) {
+      console.error('Error saving fundacao:', error);
+      Alert.alert('Erro', 'Não foi possível salvar a fundação.');
     } finally {
       setSaving(false);
     }

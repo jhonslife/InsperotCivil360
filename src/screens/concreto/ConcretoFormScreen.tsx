@@ -162,8 +162,9 @@ export function ConcretoFormScreen() {
       Alert.alert('Sucesso', isEditing ? 'Concreto atualizado.' : 'Concreto registrado.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível salvar.');
+    } catch (error) {
+      console.error('Error saving concreto:', error);
+      Alert.alert('Erro', 'Não foi possível salvar a concretagem.');
     } finally {
       setSaving(false);
     }
