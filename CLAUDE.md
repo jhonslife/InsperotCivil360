@@ -1,4 +1,4 @@
-# INSPETOR CIVIL 360 — CLAUDE.md
+# INSPETOR CIVIL 360 — CLAUDE.md 
 
 > Contexto do projeto para Claude em todas as interfaces (Copilot, Claude Code, API)
 
