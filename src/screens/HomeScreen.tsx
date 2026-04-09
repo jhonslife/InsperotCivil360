@@ -1,10 +1,10 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { StatCard } from '../components/StatCard';
 import { MenuButton } from '../components/MenuButton';
 import { useApp } from '../contexts/AppContext';
@@ -26,31 +26,42 @@ export function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.appName}>INSPETOR CIVIL 360</Text>
-            <Text style={styles.appSubtitle}>by Prof. Jose Vital</Text>
+            <Text style={styles.appSubtitle}>INSPETOR CIVIL 360</Text>
+            <Text style={styles.greeting}>Bem-vindo, {state.userName}!</Text>
           </View>
-          <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.surface} />
+          <TouchableOpacity style={styles.notificationBtn}>
+            <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.surface} />
+            <View style={styles.notificationDot} />
+          </TouchableOpacity>
         </View>
 
-        <Text style={styles.greeting}>Bem-vindo, {state.userName}!</Text>
-
-        {/* Stats */}
+        {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <StatCard value={state.obrasAtivas} label="Obras Ativas" />
-          <StatCard value={state.inspecoesHoje} label="Inspeções Hoje" />
-          <StatCard value={state.ncAbertas} label="Não Conformidades" />
-          <StatCard value={state.fundacoesEmExecucao} label="Fundações em Execução" />
-          <StatCard value={state.ensaiosPavNC} label="Ensaios Pav. NC" />
-          <StatCard value={state.cpNaoConformes} label="CP com NC" />
+          <StatCard value={state.obrasAtivas} label="Obras" icon="office-building" color="#0EA5E9" />
+          <StatCard value={state.inspecoesHoje} label="Hoje" icon="clipboard-check" color="#10B981" />
+          <StatCard value={state.ncAbertas} label="N.C." icon="alert-circle" color="#EF4444" />
+          <StatCard value={state.fundacoesEmExecucao} label="Fundações" icon="home-variant" color="#8B5CF6" />
+          <StatCard value={state.ensaiosPavNC} label="Ensaios" icon="test-tube" color="#F59E0B" />
+          <StatCard value={state.cpNaoConformes} label="CP NC" icon="flask" color="#EC4899" />
         </View>
 
         {state.obrasAtivas === 0 && (
-          <View style={styles.noObraWarning}>
-            <MaterialCommunityIcons name="alert-circle" size={20} color="#FEF3C7" />
-            <Text style={styles.noObraWarningText}>
-              Nenhuma obra ativa encontrada. Crie uma obra primeiro para realizar inspeções.
-            </Text>
-          </View>
+          <TouchableOpacity 
+            style={styles.noObraLanding}
+            onPress={() => navigation.navigate('ObrasTab', { screen: 'ObraForm' })}
+            activeOpacity={0.9}
+          >
+            <View style={styles.noObraIcon}>
+              <MaterialCommunityIcons name="plus-circle" size={32} color={COLORS.accent} />
+            </View>
+            <View style={styles.noObraContent}>
+              <Text style={styles.noObraTitle}>Comece agora!</Text>
+              <Text style={styles.noObraText}>
+                Clique aqui para cadastrar sua primeira obra e liberar todos os recursos.
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.textSecondary} />
+          </TouchableOpacity>
         )}
       </View>
 
@@ -135,40 +146,87 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: COLORS.primary,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.lg,
     paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.xl,
     borderBottomLeftRadius: BORDER_RADIUS.xl,
     borderBottomRightRadius: BORDER_RADIUS.xl,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  appName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.surface,
-    letterSpacing: 1,
-  },
-  appSubtitle: {
-    fontSize: 11,
-    color: '#B0C4DE',
-    fontStyle: 'italic',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.lg,
   },
   greeting: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: COLORS.surface,
-    marginBottom: SPACING.md,
+    marginTop: 4,
+  },
+  appSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  notificationBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
   },
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
-    rowGap: SPACING.sm,
+  },
+  noObraLanding: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginTop: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.accent + '30',
+    ...SHADOWS.medium,
+  },
+  noObraIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: COLORS.accent + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  noObraContent: {
+    flex: 1,
+  },
+  noObraTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  noObraText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   menuContainer: {
     flex: 1,

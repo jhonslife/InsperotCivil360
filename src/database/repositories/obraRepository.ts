@@ -16,7 +16,7 @@ export async function getObraById(id: string): Promise<Obra | null> {
 export async function getActiveObras(): Promise<Obra[]> {
   const db = await getDatabase();
   return await db.getAllAsync<Obra>(
-    "SELECT * FROM obras WHERE status = 'ativa' ORDER BY nome ASC"
+    "SELECT * FROM obras WHERE LOWER(status) = 'ativa' ORDER BY nome ASC"
   );
 }
 
@@ -67,7 +67,7 @@ export async function updateObra(id: string, obra: Partial<Obra>): Promise<void>
 export async function countActiveObras(): Promise<number> {
   const db = await getDatabase();
   const result = await db.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM obras WHERE status = 'ativa'"
+    "SELECT COUNT(*) as count FROM obras WHERE LOWER(status) = 'ativa'"
   );
   return result?.count ?? 0;
 }

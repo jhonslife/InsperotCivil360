@@ -1,18 +1,21 @@
 export const COLORS = {
-  primary: '#1B3A5C',
-  secondary: '#2E5C8A',
-  accent: '#E8762B',
-  background: '#F5F5F5',
+  primary: '#0F172A', // Deeper navy
+  secondary: '#1E293B', // Slate navy
+  accent: '#F59E0B', // Amber/Gold for prominence
+  accentLight: '#FEF3C7',
+  background: '#F8FAFC', // Slate 50
   surface: '#FFFFFF',
-  text: '#1A1A2E',
-  textPrimary: '#1A1A2E',
-  textSecondary: '#6B7280',
+  text: '#0F172A',
+  textPrimary: '#0F172A',
+  textSecondary: '#64748B', // Slate 500
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
-  border: '#E5E7EB',
-  disabled: '#9CA3AF',
-  overlay: 'rgba(0,0,0,0.5)',
+  border: '#E2E8F0', // Slate 200
+  disabled: '#94A3B8',
+  overlay: 'rgba(15, 23, 42, 0.6)',
+  cardBackground: '#FFFFFF',
+  cardShadow: 'rgba(0, 0, 0, 0.08)',
 };
 
 export const FONTS = {
