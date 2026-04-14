@@ -40,7 +40,7 @@ export async function findOpenRNCByOrigin(
        AND r.origem_tipo = ?
        AND r.origem_id = ?
        AND r.descricao = ?
-       AND r.status != 'fechada'
+       AND LOWER(r.status) != 'fechada'
      LIMIT 1`,
     [obraId, origemTipo, origemId, descricao]
   );
@@ -142,7 +142,7 @@ export async function updateRNC(
 export async function countOpenRNCs(): Promise<number> {
   const db = await getDatabase();
   const result = await db.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM rnc WHERE status != 'fechada'"
+    "SELECT COUNT(*) as count FROM rnc WHERE LOWER(status) != 'fechada'"
   );
   return result?.count ?? 0;
 }

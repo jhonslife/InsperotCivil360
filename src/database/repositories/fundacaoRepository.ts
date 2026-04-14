@@ -192,7 +192,7 @@ export async function updateFundacaoSignature(id: string, signaturePath: string)
 
 export async function countFundacoesEmExecucao(): Promise<number> {
   const db = await getDatabase();
-  const result = await db.getFirstAsync<{ count: number }>("SELECT COUNT(*) as count FROM fundacoes WHERE status = 'em_execucao'");
+  const result = await db.getFirstAsync<{ count: number }>("SELECT COUNT(*) as count FROM fundacoes WHERE LOWER(status) = 'em_execucao'");
   return result?.count ?? 0;
 }
 
